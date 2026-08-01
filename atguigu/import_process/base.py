@@ -2,15 +2,20 @@
 from atguigu.tool.logger import logger
 from abc import abstractmethod
 from abc import ABC
+
+
 class NodeBase(ABC):
     name = "Node_name"
+
     def __init__(self):
         if self.name == NodeBase.name:
             raise ValueError(f"子类{self.__class__.__name__} 的Node name 必须被设置")
+
     @abstractmethod
-    def process(self,state):
+    def process(self, state):
         pass
-    def __call__(self,state):
+
+    def __call__(self, state):
         try:
             logger.info(f"{self.name}开始执行了...")
             res = self.process(state)
