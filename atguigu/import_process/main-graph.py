@@ -67,7 +67,8 @@ class GraphRunner:
 if __name__ == "__main__":
 
     init_state = {
-        "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\01【掌柜智库】项目简介.md"
+        "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\hak180产品安全手册.pdf",
+        "local_dir": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output",
     }
     res = GraphRunner.create_and_run(init_state)
     logger.info(json_format(res))

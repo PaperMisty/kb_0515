@@ -49,11 +49,11 @@ class NodeEntry(NodeBase):
 
 if __name__ == "__main__":
     node = NodeEntry()
-    init_state = {
-        "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\01【掌柜智库】项目简介.md"
-    }
     # init_state = {
-    #     "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\hak180产品安全手册.pdf"
+    #     "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\01【掌柜智库】项目简介.md"
     # }
+    init_state = {
+        "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\hak180产品安全手册.pdf"
+    }
     res = node(init_state)
     logger.info(res)
