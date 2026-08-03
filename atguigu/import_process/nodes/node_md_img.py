@@ -1,10 +1,9 @@
 # atguigu/import_process/nodes/node_md_img.py
 from collections import deque
-from atguigu.tool.json_format_tool import json_format
 from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
-from atguigu.config.config import RAW_DIR, OUTPUT_DIR
+from atguigu.config.config import OUTPUT_DIR
 from pathlib import Path
 import os, re, time
 from rich import print
@@ -38,12 +37,36 @@ class NodeMDImg(NodeBase):
     def process(self, state: ImportGraphState):
         # 1.获取图片
         md_path_img_list, content, md_path_img = self.get_img(state)
+        if not md_path_img_list:
+            return state
+
         # 2.获取图片上下文
-        img_context_list, img_name, img_path = self.get_img_context(
-            md_path_img_list, content, md_path_img
-        )
+        img_context_list = self.get_img_context(md_path_img_list, content, md_path_img)
+        if not img_context_list:
+            return state
+
         # 3.获取图片摘要
-        img_summary_list = self.get_img_abstract(img_context_list, img_name, img_path)
+        self.get_img_abstract(img_context_list)
+
+        # # 4.将图片摘要追加回 md_content 中，并更新 state 与原 md 文件
+        # for img_context in img_context_list:
+        #     img_name = img_context.get("img_name")
+        #     summary = img_context.get("img_summary", "")
+        #     if summary:
+        #         # 寻找 Markdown 图片标记并在其后追加摘要说明，便于 RAG 对其进行切分和检索
+        #         pattern = re.compile(r"!\[(.*?)\]\((.*?" + re.escape(img_name) + r")\)")
+        #         content = pattern.sub(
+        #             rf"![\1](\2)\n(图片描述与摘要: {summary})\n", content
+        #         )
+
+        # state["md_content"] = content
+
+        # # 同步更新回磁盘文件，保持持久化
+        # md_path = state.get("md_path")
+        # if md_path:
+        #     with open(md_path, "w", encoding="utf-8") as f:
+        #         f.write(content)
+
         return state
 
     def get_img(self, state: ImportGraphState):
@@ -60,7 +83,8 @@ class NodeMDImg(NodeBase):
 
         md_path_img_list = os.listdir(md_path_img)
         if not md_path_img_list:
-            logger.info(f"md_path文件夹下面无内容")
+            logger.info(f"md的images文件夹下面无内容")
+            return [], content, md_path_img
         return md_path_img_list, content, md_path_img
 
     def get_img_context(self, md_path_img_list, content, md_path_img):
@@ -89,15 +113,15 @@ class NodeMDImg(NodeBase):
                 {
                     "img_name": img_name,
                     "pre_context": pre_context,
-                    "post_content": post_context,
-                    "img_path": (img_path := str(md_path_img / img_name)),
+                    "post_context": post_context,  # 统一修改为 post_context，修复原先键值获取为 None 的 Bug
+                    "img_path": str(md_path_img / img_name),
                 }
             )
             # print(json_format(img_context_list))
         logger.info(f"{md_path_img}内部的图片上下文获取完毕")
-        return img_context_list, img_name, img_path
+        return img_context_list
 
-    def get_img_abstract(self, img_context_list, img_name, img_path):
+    def get_img_abstract(self, img_context_list):
         # 初始化VLM模型
         llm = init_chat_model(
             model=LLMConfig.vlm_model,
@@ -151,10 +175,10 @@ class NodeMDImg(NodeBase):
             ]
             res = llm.invoke(
                 input=messages
-            ).content  # 假设模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s
+            ).content  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s
             print("用时: ", time.time() - start_time, "s:", res)
             img_context["img_summary"] = res
-        logger.info(f"{img_path}内部的图片摘要获取完毕")
+        logger.info("图片摘要获取完毕")
 
 
 if __name__ == "__main__":
