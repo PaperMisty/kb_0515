@@ -16,4 +16,5 @@ dependencies = [
     "numpy>=2.0.2",
     "pymongo>=4.17.0",
     "python-dotenv>=1.2.1",
+    "rich>=15.0.0",
 ]
