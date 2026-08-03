@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import time
 from functools import wraps
 import random
@@ -48,3 +49,8 @@ if __name__ == "__main__":
         except Exception as e:
             print(e)
         time.sleep(random.random())
+=======
+a = {"name": "Alice"}
+a["age"] = 18
+print(a)
+>>>>>>> e3c7ccd18ccd3713b063fd6722011b10640c7370
