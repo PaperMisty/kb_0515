@@ -1,8 +1,8 @@
 from atguigu.tool.logger import logger
-from langgraph.constants import START
+from langgraph.constants import START, END
 from atguigu.import_process.nodes.node_entry import NodeEntry
 from atguigu.import_process.state import ImportGraphState
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph
 from atguigu.import_process.nodes.node_entry import NodeEntry
 from atguigu.import_process.nodes.node_pdf_to_md import NodePDFToMD
 from atguigu.import_process.nodes.node_md_img import NodeMDImg
@@ -51,6 +51,7 @@ class GraphRunner:
         self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)
         self.builder.add_edge(NodeBGEEmbedding.name, NodeImportMilvus.name)
         self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)
+        self.builder.add_edge(NodeBGEEmbedding.name, END)
 
     def run(self, init_state):
         # 如果有缓存, 就不再编译了,避免时间资源消耗(懒加载)

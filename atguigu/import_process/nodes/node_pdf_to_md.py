@@ -1,6 +1,6 @@
 # atguigu/import_process/nodes/node_pdf_to_md.py
 import time
-from atguigu.config.config import MineruConfig
+from atguigu.config.config import MineruConfig, RAW_DIR, OUTPUT_DIR
 from atguigu.import_process import state
 from pathlib import Path
 from atguigu.tool.logger import logger
@@ -21,16 +21,16 @@ class NodePDFToMD(NodeBase):
         if not pdf_path:
             logger.error("pdf_path不能为空")
             raise ValueError("pdf_path不能为空")
-        pdf_path_obj = Path(pdf_path)
+        pdf_path_obj = pdf_path
         if not pdf_path_obj.exists():
-            logger.error("pdf文件不存在")
+            logger.error(f"pdf文件不存在:{pdf_path=}")
             raise FileNotFoundError("pdf文件不存在")
         # 校验输出路径
         local_path = state.get("local_dir", None)
         if not local_path:
             logger.error("local_dir不能为空")
             raise ValueError("local_dir不能为空")
-        local_path_obj = Path(local_path)
+        local_path_obj = local_path
         if not local_path_obj.exists():
             # parents=True表示如果父目录不存在,也一并创建
             # exist_ok=True表示如果目录已存在,不抛出异常
@@ -77,6 +77,7 @@ class NodePDFToMD(NodeBase):
                     logger.info(f"{urls[i]} upload failed")
         print(f"{batch_id=}")
 
+        # 第三阶段:轮询结果
         token = MineruConfig.mineru_token
         url = f"https://mineru.net/api/v4/extract-results/batch/{batch_id}"
         header = {
@@ -84,7 +85,6 @@ class NodePDFToMD(NodeBase):
             "Authorization": f"Bearer {token}",
         }
 
-        # 第三阶段:轮询结果
         zip_url = None
         while True:
             res = requests.get(url, headers=header)
@@ -152,8 +152,8 @@ class NodePDFToMD(NodeBase):
 if __name__ == "__main__":
     node_pdf_to_md = NodePDFToMD()
     init_state = {
-        "pdf_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\hak180产品安全手册.pdf",
-        "local_dir": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output",
+        "pdf_path": RAW_DIR / "hak180产品安全手册.pdf",
+        "local_dir": OUTPUT_DIR,
     }
     res = node_pdf_to_md(init_state)
 
