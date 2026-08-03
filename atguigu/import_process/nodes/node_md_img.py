@@ -119,15 +119,9 @@ class NodeMDImg(NodeBase):
             )
             # print(json_format(img_context_list))
         logger.info(f"{md_path_img}内部的图片上下文获取完毕")
-<<<<<<< HEAD
         return img_context_list
 
     def get_img_abstract(self, img_context_list):
-=======
-        return img_context_list, img_name, img_path
-
-    def get_img_abstract(self, img_context_list, img_name, img_path):
->>>>>>> e3c7ccd18ccd3713b063fd6722011b10640c7370
         # 初始化VLM模型
         llm = init_chat_model(
             model=LLMConfig.vlm_model,
@@ -151,11 +145,7 @@ class NodeMDImg(NodeBase):
                 current_time = time.time()
                 while bucket and current_time - bucket[0] > 60:
                     bucket.popleft()
-<<<<<<< HEAD
             # 最开始, bucket为空队列, 可以快速打满30个请求, 并且append进去;(归根结底还是串行,而且不方便开协程优化)
-=======
-            # 最开始, bucket为空队列, 可以快速打满30个请求, 并且append进去;(不方便开协程优化)
->>>>>>> e3c7ccd18ccd3713b063fd6722011b10640c7370
             bucket.append(current_time)
 
             # 图片转Base64
@@ -183,19 +173,12 @@ class NodeMDImg(NodeBase):
                     ],
                 },
             ]
-<<<<<<< HEAD
             res = llm.invoke(
                 input=messages
-            ).content  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s
+            ).content  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
             print("用时: ", time.time() - start_time, "s:", res)
             img_context["img_summary"] = res
         logger.info("图片摘要获取完毕")
-=======
-            res = llm.invoke(input=messages).content
-            print(res)
-            img_context["img_summary"] = res
-        logger.info(f"{img_path}内部的图片摘要获取完毕")
->>>>>>> e3c7ccd18ccd3713b063fd6722011b10640c7370
 
 
 if __name__ == "__main__":
