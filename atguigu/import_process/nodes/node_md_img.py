@@ -17,7 +17,7 @@ class NodeMDImg(NodeBase):
 
     def process(self, state: ImportGraphState):
         md_path = state.get("md_path")
-        # 判定文件可得行
+        # 判定文件是否可得
         if not md_path or (not md_path.exists()):
             logger.error(f"md路径无法读取:{md_path=}")
             raise FileNotFoundError("md路径无法读取")
@@ -25,7 +25,8 @@ class NodeMDImg(NodeBase):
             content = f.read()
         # 判定文件内容存在性
         if not content:
-            logger.warning("文件没有内容")
+            logger.error("文件没有内容")
+            raise ValueError("文件没有内容")
         md_path_img = md_path.parent / "images"
         # 判定图片存在性
         if not md_path_img or (not md_path_img.exists()):
@@ -52,7 +53,9 @@ class NodeMDImg(NodeBase):
                 continue
             start, end = context_match.span()
             pre_context = content[max(start - MAX_CONTEXT, 0) : start]
-            post_context = content[end : end + MAX_CONTEXT]
+            post_context = content[
+                end : end + MAX_CONTEXT
+            ]  # 切片可以越下界,但不推荐越上界,越上界会出现负数,导致从末尾开始索引;
             img_context_list.append(
                 {
                     "img_name": img_name,
