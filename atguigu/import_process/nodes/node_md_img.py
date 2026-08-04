@@ -53,6 +53,13 @@ class NodeMDImg(NodeBase):
         img_context_list = self.get_img_abstract(img_context_list)
 
         # 4.将图片传进minio
+        md_content = self.upload_img_minio(
+            img_context_list, content, state.get("md_path")
+        )
+        return {"md_content": md_content}
+
+    def upload_img_minio(self, img_context_list, content, md_path):
+        # 4.将图片传进minio
         minio_client = get_minio_client()
         # 幂等性删除图片
         img_obj_list = list(
@@ -75,23 +82,36 @@ class NodeMDImg(NodeBase):
 
         for img_context in img_context_list:
             # 放图片进去
-            print("======!!!======")
+            img_name = img_context.get("img_name")
             minio_client.fput_object(
                 bucket_name=MinIOConfig.minio_bucket_name,
-                object_name=MinIOConfig.minio_img_dir
-                + "/"
-                + img_context.get("img_name"),
+                object_name=MinIOConfig.minio_img_dir + "/" + img_name,
                 file_path=img_context.get("img_path"),
             )
             # 获取图片url
             img_context["url"] = (
-                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_context.get('img_name')}"
+                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_name}"
             )
-            print(img_context["url"])
+            # print(img_context["url"])
+            # 5.替换md_content图片链接的内容
+            md_content = self.replace_md_content(img_context, content, md_path)
+        return md_content
 
-        # 替换md_content图片链接的内容
-
-        return state
+    def replace_md_content(self, img_context, content, md_path):
+        # 5.替换md_content图片链接的内容
+        pattern = re.compile(
+            r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
+        )
+        md_content = pattern.sub(
+            f"![{img_context.get('img_summary')}])({img_context.get('url')})",
+            content,
+        )
+        # 内容写进新文件
+        new_md_path = md_path.parents[0] / (md_path.stem + "_new.md")
+        print(new_md_path, type(new_md_path))
+        with open(new_md_path, "w", encoding="utf-8") as f:
+            f.write(md_content)
+        return md_content
 
     def get_img(self, state: ImportGraphState):
         # 判定文件路径存在性
@@ -146,6 +166,7 @@ class NodeMDImg(NodeBase):
         return img_context_list
 
     def get_img_abstract(self, img_context_list):
+        # 3.获取图片摘要
         # 初始化VLM模型
         llm = init_chat_model(
             model=LLMConfig.vlm_model,
