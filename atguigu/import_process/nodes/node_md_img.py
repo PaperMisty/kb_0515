@@ -1,4 +1,7 @@
 # atguigu/import_process/nodes/node_md_img.py
+from atguigu.config.config import MinIOConfig
+from atguigu.tool.minio_client_tool import get_minio_client
+from atguigu.tool.minio_client_tool import minio_client
 from collections import deque
 from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
@@ -9,6 +12,7 @@ import os, re, time
 from rich import print
 from langchain.chat_models import init_chat_model
 from atguigu.config.config import LLMConfig
+from minio.deleteobjects import DeleteObject
 
 
 class NodeMDImg(NodeBase):
@@ -46,26 +50,46 @@ class NodeMDImg(NodeBase):
             return state
 
         # 3.获取图片摘要
-        self.get_img_abstract(img_context_list)
+        img_context_list = self.get_img_abstract(img_context_list)
 
-        # # 4.将图片摘要追加回 md_content 中，并更新 state 与原 md 文件
-        # for img_context in img_context_list:
-        #     img_name = img_context.get("img_name")
-        #     summary = img_context.get("img_summary", "")
-        #     if summary:
-        #         # 寻找 Markdown 图片标记并在其后追加摘要说明，便于 RAG 对其进行切分和检索
-        #         pattern = re.compile(r"!\[(.*?)\]\((.*?" + re.escape(img_name) + r")\)")
-        #         content = pattern.sub(
-        #             rf"![\1](\2)\n(图片描述与摘要: {summary})\n", content
-        #         )
+        # 4.将图片传进minio
+        minio_client = get_minio_client()
+        # 幂等性删除图片
+        img_obj_list = list(
+            minio_client.list_objects(
+                bucket_name=MinIOConfig.minio_bucket_name,
+                prefix=MinIOConfig.minio_img_dir,
+                recursive=True,
+            )
+        )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
+        print("len(img_obj_list)= ", len(img_obj_list))
+        for item in img_obj_list:
+            print("img_obj: ", item)
+        errors = minio_client.remove_objects(
+            bucket_name=MinIOConfig.minio_bucket_name,
+            delete_object_list=[
+                DeleteObject(img_obj.object_name) for img_obj in img_obj_list
+            ],
+        )
+        [logger.error(f"删除图片出错: {error}") for error in errors]
 
-        # state["md_content"] = content
+        for img_context in img_context_list:
+            # 放图片进去
+            print("======!!!======")
+            minio_client.fput_object(
+                bucket_name=MinIOConfig.minio_bucket_name,
+                object_name=MinIOConfig.minio_img_dir
+                + "/"
+                + img_context.get("img_name"),
+                file_path=img_context.get("img_path"),
+            )
+            # 获取图片url
+            img_context["url"] = (
+                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_context.get('img_name')}"
+            )
+            print(img_context["url"])
 
-        # # 同步更新回磁盘文件，保持持久化
-        # md_path = state.get("md_path")
-        # if md_path:
-        #     with open(md_path, "w", encoding="utf-8") as f:
-        #         f.write(content)
+        # 替换md_content图片链接的内容
 
         return state
 
@@ -133,20 +157,18 @@ class NodeMDImg(NodeBase):
 
         # 设计令牌桶,防止限流-----bug: 可能不能打满请求RPM的80% ,而且尚未考虑TPM限制
         bucket = deque(maxlen=30)
-        current_time = time.time()
         for img_context in img_context_list:
             start_time = time.time()
             # 盲清一波队列
-            while bucket and current_time - bucket[0] > 60:
+            while bucket and time.time() - bucket[0] > 60:
                 bucket.popleft()
             # 如果满员, 睡一定时间,睡完再出队第一个, 并入队新的请求时间戳(通过睡眠来控制后文的请求频率)
-            if bucket and len(bucket) == deque.maxlen:
-                time.sleep(60 - (current_time - bucket[0]))
-                current_time = time.time()
-                while bucket and current_time - bucket[0] > 60:
+            if bucket and len(bucket) == bucket.maxlen:
+                time.sleep(60 - (time.time() - bucket[0]))
+                while bucket and time.time() - bucket[0] > 60:
                     bucket.popleft()
             # 最开始, bucket为空队列, 可以快速打满30个请求, 并且append进去;(归根结底还是串行,而且不方便开协程优化)
-            bucket.append(current_time)
+            bucket.append(time.time())
 
             # 图片转Base64
             import base64
@@ -179,12 +201,15 @@ class NodeMDImg(NodeBase):
             print("用时: ", time.time() - start_time, "s:", res)
             img_context["img_summary"] = res
         logger.info("图片摘要获取完毕")
+        return img_context_list
 
 
 if __name__ == "__main__":
+    start = time.time()
     node_md_img = NodeMDImg()
     init_state = {
         "md_path": OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md",
     }
     res = node_md_img(init_state)
     logger.info(res)
+    print(f"{time.time()-start=}s")

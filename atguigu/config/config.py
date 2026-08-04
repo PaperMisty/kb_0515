@@ -25,3 +25,11 @@ class LLMConfig:
     temperature = float(os.getenv("LLM_DEFAULT_TEMPERATURE"))
     vlm_model = os.getenv("VL_MODEL")
     item_model = os.getenv("ITEM_MODEL")
+
+
+class MinIOConfig:
+    minio_endpoint = os.getenv("MINIO_ENDPOINT")
+    minio_access = os.getenv("MINIO_ACCESS")
+    minio_secret = os.getenv("MINIO_SECRET")
+    minio_bucket_name = os.getenv("MINIO_BUCKET_NAME")
+    minio_img_dir = os.getenv("MINIO_IMG_DIR")

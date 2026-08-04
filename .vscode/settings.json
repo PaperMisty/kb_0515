@@ -1,3 +1,4 @@
 {
-  "editor.fontFamily": "Times new roman"
+  "editor.fontFamily": "Times new roman",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
 }
