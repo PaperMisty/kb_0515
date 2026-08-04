@@ -164,8 +164,8 @@ class NodePDFToMD(NodeBase):
 if __name__ == "__main__":
     node_pdf_to_md = NodePDFToMD()
     init_state = {
-        "pdf_path": RAW_DIR / "hak180产品安全手册.pdf",
-        "local_dir": OUTPUT_DIR,
+        "pdf_path": str(RAW_DIR / "hak180产品安全手册.pdf"),
+        "local_dir": str(OUTPUT_DIR),
     }
     res = node_pdf_to_md(init_state)
 

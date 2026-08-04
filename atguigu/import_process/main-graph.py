@@ -13,6 +13,7 @@ from atguigu.import_process.nodes.node_item_name_recognize import (
 from atguigu.import_process.nodes.node_bge_embedding import NodeBGEEmbedding
 from atguigu.import_process.nodes.node_import_milvus import NodeImportMilvus
 from atguigu.tool.json_format_tool import json_format
+from atguigu.config.config import RAW_DIR, OUTPUT_DIR
 
 
 class GraphRunner:
@@ -65,11 +66,18 @@ class GraphRunner:
         return cls().run(state)
 
 
+class MyCustomRunner(GraphRunner):
+    # 重写了 run 方法以提供自定义逻辑
+    def run(self, state):
+        print("执行自定义 Runner")
+        return super().run(state)
+
+
 if __name__ == "__main__":
 
     init_state = {
-        "local_file_path": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output\hak180产品安全手册.pdf",
-        "local_dir": r"D:\desktop\Markdown笔记\机器学习\kb_0515\atguigu\data\output",
+        "local_file_path": str(RAW_DIR / "hak180产品安全手册.pdf"),
+        "local_dir": str(OUTPUT_DIR),
     }
     res = GraphRunner.create_and_run(init_state)
     logger.info(json_format(res))

@@ -30,14 +30,14 @@ class NodeEntry(NodeBase):
         if file_type == ".md":
             return {
                 "file_title": file_name,
-                "md_path": local_file_path,
+                "md_path": str(local_file_path),
                 "is_md_read_enabled": True,
                 "is_pdf_read_enabled": False,
             }
         elif file_type == ".pdf":
             return {
                 "file_title": file_name,
-                "pdf_path": local_file_path,
+                "pdf_path": str(local_file_path),
                 "is_md_read_enabled": False,
                 "is_pdf_read_enabled": True,
             }
