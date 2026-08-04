@@ -7,6 +7,7 @@ from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.config.config import OUTPUT_DIR
+from atguigu.tool.validate_path import validate_path
 from pathlib import Path
 import os, re, time
 from rich import print
@@ -22,30 +23,14 @@ class NodeMDImg(NodeBase):
 
     name = "node_md_img"
 
-    # 路径文件检查器
-    @staticmethod
-    def validate_path(path: str, level: str):
-        # 判定路径是否可得
-        if not path or (not path.exists()):
-            if level == "error":
-                logger.error(f"路径无法读取/无内容:{path=}")
-                raise FileNotFoundError("路径无法读取")
-            elif level == "warning":
-                logger.warning(f"路径无法读取/无内容:{path=}")
-            elif level == "info":
-                logger.info(f"路径无法读取/无内容:{path=}")
-            elif level == "debug":
-                logger.debug(f"路径无法读取/无内容:{path=}")
-        return path
-
     def process(self, state: ImportGraphState):
         # 1.获取图片
-        md_path_img_list, content, md_path_img = self.get_img(state)
-        if not md_path_img_list:
+        md_img_path_list, content, md_img_path = self.get_img(state)
+        if not md_img_path_list:
             return state
 
         # 2.获取图片上下文
-        img_context_list = self.get_img_context(md_path_img_list, content, md_path_img)
+        img_context_list = self.get_img_context(md_img_path_list, content, md_img_path)
         if not img_context_list:
             return state
 
@@ -54,11 +39,11 @@ class NodeMDImg(NodeBase):
 
         # 4.将图片传进minio
         md_content = self.upload_img_minio(
-            img_context_list, content, state.get("md_path")
+            img_context_list, content, Path(state.get("md_path"))
         )
         return {"md_content": md_content}
 
-    def upload_img_minio(self, img_context_list, content, md_path):
+    def upload_img_minio(self, img_context_list, content, md_path_obj: Path):
         # 4.将图片传进minio
         minio_client = get_minio_client()
         # 幂等性删除图片
@@ -66,10 +51,10 @@ class NodeMDImg(NodeBase):
             minio_client.list_objects(
                 bucket_name=MinIOConfig.minio_bucket_name,
                 prefix=MinIOConfig.minio_img_dir,
-                recursive=True,
+                recursive=True,  # 递归删除文件夹内部内容, 否则不会删
             )
         )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
-        print("len(img_obj_list)= ", len(img_obj_list))
+        # print("len(img_obj_list)= ", len(img_obj_list))
         for item in img_obj_list:
             print("img_obj: ", item)
         errors = minio_client.remove_objects(
@@ -94,10 +79,10 @@ class NodeMDImg(NodeBase):
             )
             # print(img_context["url"])
             # 5.替换md_content图片链接的内容
-            md_content = self.replace_md_content(img_context, content, md_path)
+            md_content = self.replace_md_content(img_context, content, md_path_obj)
         return md_content
 
-    def replace_md_content(self, img_context, content, md_path):
+    def replace_md_content(self, img_context, content, md_path_obj: Path):
         # 5.替换md_content图片链接的内容
         pattern = re.compile(
             r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
@@ -107,7 +92,7 @@ class NodeMDImg(NodeBase):
             content,
         )
         # 内容写进新文件
-        new_md_path = md_path.parents[0] / (md_path.stem + "_new.md")
+        new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
         print(new_md_path, type(new_md_path))
         with open(new_md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
@@ -115,28 +100,29 @@ class NodeMDImg(NodeBase):
 
     def get_img(self, state: ImportGraphState):
         # 判定文件路径存在性
-        md_path = self.validate_path(state.get("md_path"), level="error")
-        with open(md_path, "r", encoding="utf-8") as f:
+        md_path_obj = Path(state.get("md_path"))
+        md_path_obj = validate_path(md_path_obj, level="error")
+        with open(md_path_obj, "r", encoding="utf-8") as f:
             content = f.read()
         # 判定文件内容存在性
         if not content:
             logger.error("文件没有内容")
             raise ValueError("文件没有内容")
         # 判定图片文件夹存在性
-        md_path_img = self.validate_path(md_path.parent / "images", level="warning")
+        md_img_path = validate_path(md_path_obj.parent / "images", level="warning")
 
-        md_path_img_list = os.listdir(md_path_img)
-        if not md_path_img_list:
+        md_img_path_list = os.listdir(md_img_path)
+        if not md_img_path_list:
             logger.info(f"md的images文件夹下面无内容")
-            return [], content, md_path_img
-        return md_path_img_list, content, md_path_img
+            return [], content, md_img_path
+        return md_img_path_list, content, md_img_path
 
-    def get_img_context(self, md_path_img_list, content, md_path_img):
+    def get_img_context(self, md_img_path_list, content, md_img_path):
         # 2.遍历图片,获取上下文
         IMG_SUFFIX_SET = {".jpg", ".png", ".jpeg", ".gif", ".webp", ".bmp"}
         MAX_CONTEXT = 250
         img_context_list = []
-        for img_name in md_path_img_list:
+        for img_name in md_img_path_list:
             if Path(img_name).suffix.lower() not in IMG_SUFFIX_SET:
                 logger.warning(f"图片格式不支持:{img_name=}")
                 continue
@@ -158,11 +144,11 @@ class NodeMDImg(NodeBase):
                     "img_name": img_name,
                     "pre_context": pre_context,
                     "post_context": post_context,  # 统一修改为 post_context，修复原先键值获取为 None 的 Bug
-                    "img_path": str(md_path_img / img_name),
+                    "img_path": str(md_img_path / img_name),
                 }
             )
             # print(json_format(img_context_list))
-        logger.info(f"{md_path_img}内部的图片上下文获取完毕")
+        logger.info(f"{md_img_path}内部的图片上下文获取完毕")
         return img_context_list
 
     def get_img_abstract(self, img_context_list):
@@ -178,6 +164,7 @@ class NodeMDImg(NodeBase):
 
         # 设计令牌桶,防止限流-----bug: 可能不能打满请求RPM的80% ,而且尚未考虑TPM限制
         bucket = deque(maxlen=30)
+        messages_list = []
         for img_context in img_context_list:
             start_time = time.time()
             # 盲清一波队列
@@ -216,11 +203,20 @@ class NodeMDImg(NodeBase):
                     ],
                 },
             ]
-            res = llm.invoke(
-                input=messages
-            ).content  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
-            print("用时: ", time.time() - start_time, "s:", res)
-            img_context["img_summary"] = res
+            messages_list.append(messages)
+            res_list = []
+            if len(messages_list) == 10 or img_context == img_context_list[-1]:
+
+                async def chat_batch():
+                    res_list = await llm.abatch(
+                        inputs=messages
+                    )  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
+                    print("用时: ", time.time() - start_time, "s:")
+
+            if res_list:
+                for res in res_list:
+                    img_context_list["img_summary"] = res.content
+                    print(res.content[:20])  # 示例演示
         logger.info("图片摘要获取完毕")
         return img_context_list
 
@@ -229,8 +225,10 @@ if __name__ == "__main__":
     start = time.time()
     node_md_img = NodeMDImg()
     init_state = {
-        "md_path": OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md",
+        "md_path": str(OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md"),
     }
     res = node_md_img(init_state)
     logger.info(res)
     print(f"{time.time()-start=}s")
+
+    # sudo ntpdate ntp.aliyun.com # Linux时间同步

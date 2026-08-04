@@ -9,7 +9,9 @@ class NodeBase(ABC):
 
     def __init__(self):
         if self.name == NodeBase.name:
-            raise ValueError(f"子类{self.__class__.__name__} 的Node name 必须被设置")
+            raise ValueError(
+                f"子类{self.__class__.__name__} 的Node name 必须被设置"
+            )  # 在compile之前就可以报错,不会浪费资源
 
     @abstractmethod
     def process(self, state):

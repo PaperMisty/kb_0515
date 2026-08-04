@@ -7,6 +7,7 @@ from pathlib import Path
 from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
+from atguigu.tool.validate_path import validate_path
 
 
 class NodePDFToMD(NodeBase):
@@ -16,49 +17,41 @@ class NodePDFToMD(NodeBase):
 
     name = "node_pdf_to_md"
 
-    # 路径校验统一函数
-    @staticmethod
-    def validate_path(state: ImportGraphState, path_name: str):
-        path = state.get(path_name, None)
-        if not path or (not path.exists()):
-            logger.error(f"{path_name}路径无法读取:{path=}")
-            raise FileNotFoundError(f"{path_name}路径无法读取")
-        return path
+    def __init__(self):
+        self.token = MineruConfig.mineru_token
+        self.base_url = MineruConfig.mineru_base_url
+        self.header = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
 
     def process(self, state: ImportGraphState):
         # 校验输入路径
-        pdf_path_obj = self.validate_path(state, "pdf_path")
+        pdf_path = state.get("pdf_path", None)
+        pdf_path_obj = validate_path(pdf_path, "error")
         # 校验输出路径
         local_path = state.get("local_dir", None)
-        if not local_path:
-            logger.error("local_dir不能为空")
-            raise ValueError("local_dir不能为空")
-        local_path_obj = Path(local_path)
+        local_path_obj = validate_path(local_path, "debug")
         if not local_path_obj.exists():
             # parents=True表示如果父目录不存在,也一并创建
             # exist_ok=True表示如果目录已存在,不抛出异常
             local_path_obj.mkdir(parents=True, exist_ok=True)
-        urls, batch_id, file_path = self.verify_token(pdf_path_obj)
-        self.upload_files(urls, file_path, batch_id)
+        urls, batch_id = self.verify_token(pdf_path_obj)
+        self.upload_files(urls, pdf_path, batch_id)
         zip_content = self.ask_for_results(batch_id)
         self.write_zip_and_rename(local_path_obj, pdf_path_obj, zip_content)
 
-    def verify_token(self, pdf_path_obj):
+    def verify_token(self, pdf_path_obj: Path) -> tuple[list[str], str]:
 
         # 第一阶段:服务器验证您的 Token 之后，并没有在这个阶段接收您的文件内容，
         # 而是返回了一个专门供您上传该文件的临时链接（预签名 URL / Presigned URL）
-        token = MineruConfig.mineru_token
-        url = f"{MineruConfig.mineru_base_url}/file-urls/batch"
-        header = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
+        url = f"{self.base_url}/file-urls/batch"
+
         data = {
             "files": [{"name": pdf_path_obj.name, "data_id": "abcd"}],
             "model_version": "vlm",
         }
-        file_path = [str(pdf_path_obj)]
-        response = requests.post(url, headers=header, json=data)
+        response = requests.post(url, headers=self.header, json=data)
         # 第一阶段的三层判断
         if response.status_code != 200:
             logger.error(f"申请上传文件请求失败")
@@ -73,31 +66,27 @@ class NodePDFToMD(NodeBase):
         batch_id = result["data"]["batch_id"]
         urls = result["data"]["file_urls"]
         logger.info("申请上传文件数据成功")
-        return urls, batch_id, file_path
+        return urls, batch_id
 
-    def upload_files(self, urls, file_path, batch_id):
+    def upload_files(self, urls: list[str], file_path: str, batch_id: str) -> None:
         # 第二阶段:拿着上一步拿到的临时链接，开始执行实际的文件上传操作
         for i in range(0, len(urls)):
             with open(file_path[i], "rb") as f:
-                res_upload = requests.put(urls[i], data=f)
+                res_upload = requests.put(
+                    urls[i], data=f
+                )  # 对象存储服务的标准中，使用 PUT 方法上传文件是非常标准且合理的做法, 寓意本地资源放置在云端去。PUT是幂等的/POST不是幂等的
                 if res_upload.status_code == 200:
                     logger.info(f"{urls[i]} upload success")
                 else:
                     logger.info(f"{urls[i]} upload failed")
-        print(f"{batch_id=}")
+        # print(f"{batch_id=}")
 
-    def ask_for_results(self, batch_id):
+    def ask_for_results(self, batch_id: str) -> bytes:
         # 第三阶段:轮询结果
-        token = MineruConfig.mineru_token
         url = f"https://mineru.net/api/v4/extract-results/batch/{batch_id}"
-        header = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
-
         zip_url = None
         while True:
-            res = requests.get(url, headers=header)
+            res = requests.get(url, headers=self.header)  # 返回Response对象
             if res.status_code != 200:
                 logger.error(f"获取解析结果失败,状态码：{res.status_code}")
                 raise ValueError("获取解析结果失败")
@@ -124,7 +113,9 @@ class NodePDFToMD(NodeBase):
         zip_content = res_zip.content
         return zip_content
 
-    def write_zip_and_rename(self, local_path_obj, pdf_path_obj, zip_content):
+    def write_zip_and_rename(
+        self, local_path_obj: Path, pdf_path_obj: Path, zip_content: bytes
+    ) -> ImportGraphState:
         # zip写进磁盘
         zip_file_path = local_path_obj / f"{pdf_path_obj.stem}.zip"
         with open(zip_file_path, "wb") as f:
@@ -143,7 +134,9 @@ class NodePDFToMD(NodeBase):
             unzip_content.extractall(unzip_content_path_obj)
 
         # 重命名full.md为pdf_path_obj.stem + ".md"
-        target_md = unzip_content_path_obj / f"{pdf_path_obj.stem}.md"
+        target_md = (
+            unzip_content_path_obj / f"{pdf_path_obj.stem}.md"
+        )  # stem会去掉路径,也去掉后缀
         full_md = unzip_content_path_obj / "full.md"
         if full_md.exists():
             if target_md.exists():
