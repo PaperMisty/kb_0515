@@ -17,7 +17,9 @@ def get_minio_client() -> Minio:
         )
     bucket_name = MinIOConfig.minio_bucket_name
     if not minio_client.bucket_exists(bucket_name=bucket_name):
-        minio_client.make_bucket(bucket_name=bucket_name)
+        minio_client.make_bucket(
+            bucket_name=bucket_name
+        )  # bucket需要显式创建, 但是[文件夹]不需要创建,MinIO本身是通过对象名称（Object Name）中的斜杠 / 模拟出来的路径前缀（Prefix）。
     # Example anonymous read-only bucket policy.
     policy = {
         "Version": "2012-10-17",

@@ -1,19 +1,19 @@
 # atguigu/import_process/nodes/node_document_split.py
+from atguigu.import_process.base import NodeBase
+from atguigu.import_process.state import ImportGraphState
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from atguigu.import_process import state
 from pathlib import Path
 from atguigu.tool.validate_path import validate_path
 from atguigu.config.config import OUTPUT_DIR
 from atguigu.tool.logger import logger
-from atguigu.import_process.base import NodeBase
-from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.json_format_tool import json_format
 import re
 
 
 class NodeDocumentSplit(NodeBase):
     """
-    文档切分节点：智能文档切片
+    文档切分节点：父子文档切分方式,先按段落(父),再按换行符和标点符号(子)
     """
 
     name = "node_document_split"
@@ -54,7 +54,7 @@ class NodeDocumentSplit(NodeBase):
         if not md_content:
             logger.error(f"{md_path_obj}文件无内容")
             raise Exception(f"{md_path_obj}文件无内容")
-        md_content.replace("\r\n", "\n").replace("\n\n", "\n")
+        md_content = md_content.replace("\r\n", "\n").replace("\n\n", "\n")
         # 用换行符切割
         md_content_list = md_content.split("\n")
         return md_content_list, file_title, md_path_obj
@@ -94,17 +94,18 @@ class NodeDocumentSplit(NodeBase):
             if not is_block and (match_obj := re.match(title_pattern, line)):
                 temp_list = md_content_list[current_index:idx]
                 section_content = "\n".join(temp_list)  # 列表转文本
-                section_dict_list.append(
-                    {
-                        "file_title": file_title,
-                        "section_title": (
-                            temp_list[0]
-                            if section_content.startswith("#")
-                            else "无标题"
-                        ),
-                        "section_content": section_content,
-                    }
-                )
+                if temp_list:  # 避免首个匹配就是标题,导致temp_list为空的情况
+                    section_dict_list.append(
+                        {
+                            "file_title": file_title,
+                            "section_title": (
+                                temp_list[0]
+                                if section_content.startswith("#")
+                                else "介绍"  # 只有第一个无标题内容才会触发此 介绍
+                            ),
+                            "section_content": section_content,
+                        }
+                    )
                 current_index = idx
         # 补充最后一段的段落内容
         last_section_list = md_content_list[current_index:]
@@ -119,7 +120,7 @@ class NodeDocumentSplit(NodeBase):
 
     def split_chunks(
         self, section_dict_list: list[dict], file_title: str, md_path_obj: Path
-    ) -> ImportGraphState:
+    ) -> list[dict]:
         """递归切割器切分段落
 
         Args:
@@ -188,5 +189,6 @@ if __name__ == "__main__":
         "md_path": str(OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册_new.md"),
         "file_title": "hak180产品安全手册",
     }
+
     res = node(init_state)
     logger.info(json_format(res))
