@@ -1,25 +1,28 @@
 # atguigu/import_process/nodes/node_md_img.py
+from atguigu.tool.json_format_tool import json_format
 import asyncio
-from atguigu.config.config import MinIOConfig
-from atguigu.tool.minio_client_tool import get_minio_client
-from atguigu.tool.minio_client_tool import minio_client
+from atguigu.config.config import MinIOConfig, LLMConfig, OUTPUT_DIR
+from atguigu.tool.minio_client_tool import get_minio_client, minio_client
 from collections import deque
 from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
-from atguigu.config.config import OUTPUT_DIR
 from atguigu.tool.validate_path import validate_path
 from pathlib import Path
-import os, re, time
+import os, re, time, base64
 from rich import print
 from langchain.chat_models import init_chat_model
-from atguigu.config.config import LLMConfig
 from minio.deleteobjects import DeleteObject
 
 
 class NodeMDImg(NodeBase):
-    """
-    MarkDown图片处理节点：多模态图片理解
+    """MarkDown图片处理节点：多模态图片理解
+
+    Args:
+        NodeBase (_type_): _description_
+
+    Raises:
+        ValueError: _description_
     """
 
     name = "node_md_img"
@@ -44,77 +47,25 @@ class NodeMDImg(NodeBase):
         )
         return {"md_content": md_content}
 
-    def upload_img_minio(
-        self, img_context_list: list[dict], content: str, md_path_obj: Path
-    ) -> str:
-        # 4.将图片传进minio
-        minio_client = get_minio_client()
-        # 幂等性删除图片
-        img_obj_list = list(
-            minio_client.list_objects(
-                bucket_name=MinIOConfig.minio_bucket_name,
-                prefix=MinIOConfig.minio_img_dir,
-                recursive=True,  # 递归删除文件夹内部内容, 否则不会删
-            )
-        )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
-        # print("len(img_obj_list)= ", len(img_obj_list))
-        # for item in img_obj_list:
-        #     print("img_obj: ", item)
-        errors = minio_client.remove_objects(
-            bucket_name=MinIOConfig.minio_bucket_name,
-            delete_object_list=[
-                DeleteObject(img_obj.object_name) for img_obj in img_obj_list
-            ],
-        )
-        [logger.error(f"删除图片出错: {error}") for error in errors]
-
-        for img_context in img_context_list:
-            # 放图片进去
-            img_name = img_context.get("img_name")
-            minio_client.fput_object(
-                bucket_name=MinIOConfig.minio_bucket_name,
-                object_name=MinIOConfig.minio_img_dir + "/" + img_name,
-                file_path=img_context.get("img_path"),
-            )
-            # 获取图片url
-            img_context["url"] = (
-                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_name}"
-            )
-            # print(img_context["url"])
-            # 5.替换md_content图片链接的内容
-            md_content = self.replace_md_content(img_context, content, md_path_obj)
-        return md_content
-
-    def replace_md_content(
-        self, img_context: dict, content: str, md_path_obj: Path
-    ) -> str:
-        # 5.替换md_content图片链接的内容
-        pattern = re.compile(
-            r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
-        )
-        md_content = pattern.sub(
-            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
-            content,
-        )
-        print(
-            "online_url: ",
-            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
-        )
-
-        # 内容写进新文件
-        new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
-        with open(new_md_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
-        return md_content
-
     def get_img(self, state: ImportGraphState) -> tuple[list[dict], str, Path]:
+        """获取Markdown文档的图片内容
+
+        Args:
+            state (ImportGraphState): 主图状态
+
+        Raises:
+            ValueError: 文件不存在
+
+        Returns:
+            tuple[list[dict], str, Path]: 图片路径,文档内容, 文档路径
+        """
         # 判定文件路径存在性
         md_path_obj = Path(state.get("md_path"))
         md_path_obj = validate_path(md_path_obj, level="error")
         with open(md_path_obj, "r", encoding="utf-8") as f:
-            content = f.read()
+            md_content = f.read()
         # 判定文件内容存在性
-        if not content:
+        if not md_content:
             logger.error("文件没有内容")
             raise ValueError("文件没有内容")
         # 判定图片文件夹存在性
@@ -123,13 +74,22 @@ class NodeMDImg(NodeBase):
         md_img_path_list = os.listdir(md_img_path)
         if not md_img_path_list:
             logger.info(f"md的images文件夹下面无内容")
-            return [], content, md_img_path
-        return md_img_path_list, content, md_img_path
+            return [], md_content, md_img_path
+        return md_img_path_list, md_content, md_img_path
 
     def get_img_context(
-        self, md_img_path_list: list[dict], content: str, md_img_path: Path
+        self, md_img_path_list: list[dict], md_content: str, md_img_path: Path
     ) -> list[dict]:
-        # 2.遍历图片,获取上下文
+        """根据图片获取上下文
+
+        Args:
+            md_img_path_list (list[dict]): 图片路径,文档内容, 文档路径
+            md_content (str): 文档内容
+            md_img_path (Path): 文档路径
+
+        Returns:
+            list[dict]: 图片相关信息
+        """
         IMG_SUFFIX_SET = {".jpg", ".png", ".jpeg", ".gif", ".webp", ".bmp"}
         MAX_CONTEXT = 250
         img_context_list = []
@@ -137,19 +97,22 @@ class NodeMDImg(NodeBase):
             if Path(img_name).suffix.lower() not in IMG_SUFFIX_SET:
                 logger.warning(f"图片格式不支持:{img_name=}")
                 continue
+
             # 取图片的上下文
             pattern = re.compile(
                 r"!\[.*?\]\(.*?" + re.escape(img_name) + r"\)"
             )  # re.escape作用是把img_name的.字符转义,避免被re当做元字符
-            context_match = pattern.search(content)
+            context_match = pattern.search(md_content)
+
             if not context_match:
                 logger.warning("image文件夹内的图片未被md引用")
                 continue
             start, end = context_match.span()
-            pre_context = content[max(start - MAX_CONTEXT, 0) : start]
-            post_context = content[
+            pre_context = md_content[max(start - MAX_CONTEXT, 0) : start]
+            post_context = md_content[
                 end : end + MAX_CONTEXT
             ]  # 切片可以越下界,但不推荐越上界,越上界会出现负数,导致从末尾开始索引;
+
             img_context_list.append(
                 {
                     "img_name": img_name,
@@ -158,12 +121,19 @@ class NodeMDImg(NodeBase):
                     "img_path": str(md_img_path / img_name),
                 }
             )
-            # print(json_format(img_context_list))
         logger.info(f"{md_img_path}内部的图片上下文获取完毕")
         return img_context_list
 
     async def chat_batch(self, llm, messages) -> list[str]:
-        
+        """异步批量处理图片摘要请求, 提高RPM
+
+        Args:
+            llm (_type_): 模型对象
+            messages (_type_): 提词列表
+
+        Returns:
+            list[str]: 响应列表
+        """
         start_time = time.time()
         res_list = await llm.abatch(
             inputs=messages
@@ -171,8 +141,17 @@ class NodeMDImg(NodeBase):
         print("abatch用时: ", time.time() - start_time, "s:")
         return res_list
 
+    # TODO:可以把[摘要生成]的函数调用进[图片上下文获取]函数的for里面, 可能需要用闭包管理批次batch
     def get_img_abstract(self, img_context_list: list[dict]) -> list[dict]:
-        # 3.获取图片摘要
+        """获取图片摘要
+
+        Args:
+            img_context_list (list[dict]): 图片相关信息
+
+        Returns:
+            list[dict]: 图片相关信息(含图片摘要)
+        """
+
         # 初始化VLM模型
         llm = init_chat_model(
             model=LLMConfig.vlm_model,
@@ -183,6 +162,7 @@ class NodeMDImg(NodeBase):
         )
 
         # 设计令牌桶,防止限流-----bug: 可能不能打满请求RPM的80% ,而且尚未考虑TPM限制
+        # TODO:可以换成三层嵌套装饰器来限流,代码或许更美观
         bucket = deque(maxlen=30)
         messages_list = []
         batch_contexts = []  # 增加一个临时列表，存放当前批次的 img_context 字典引用
@@ -197,12 +177,13 @@ class NodeMDImg(NodeBase):
                 while bucket and time.time() - bucket[0] > 60:
                     bucket.popleft()
             bucket.append(time.time())
-            # 图片转Base64
-            import base64
 
             with open(img_context.get("img_path"), "rb") as f:
                 b_content = f.read()
-                base64_code = base64.b64encode(b_content).decode("utf-8")
+                base64_code = base64.b64encode(b_content).decode(
+                    "utf-8"
+                )  # b64encode是把[二进制:bytes] 转 [ASCII码对应的字节:bytes]
+                # decode 是把[ASCII码对应的字节:bytes] 转 [字符串:str] ,因为字符串才能在json里面进行网络传输
 
             # 构造提示词
             messages = [
@@ -232,8 +213,6 @@ class NodeMDImg(NodeBase):
                 for inner_idx, res in enumerate(res_list):
                     # 直接通过临时列表对字典赋值，修改会同步反映到原始 img_context_list 中, 这是存在一个引用传递特性的
                     batch_contexts[inner_idx]["img_summary"] = res.content
-                    print(f'{batch_contexts[inner_idx]["img_summary"]=}')
-                    print(f"{res.content[:20]=}")  # 示例演示
 
                 # 关键：处理完当前批次后，必须清空临时列表和消息列表
                 messages_list = []
@@ -241,6 +220,81 @@ class NodeMDImg(NodeBase):
         logger.info("图片摘要获取完毕")
 
         return img_context_list
+
+    def upload_img_minio(
+        self, img_context_list: list[dict], md_content: str, md_path_obj: Path
+    ) -> str:
+        """将图片传进minio , 并替换md_content图片链接的内容
+
+        Args:
+            img_context_list (list[dict]): 图片相关信息的列表
+            md_content (str): Markdown文档内容
+            md_path_obj (Path): Markdown文件路径Path对象
+
+        Returns:
+            str: 替换后的Markdown文档内容
+        """
+        minio_client = get_minio_client()
+        # 幂等性删除图片
+        img_obj_list = list(
+            minio_client.list_objects(
+                bucket_name=MinIOConfig.minio_bucket_name,
+                prefix=MinIOConfig.minio_img_dir,
+                recursive=True,  # 递归删除文件夹内部内容, 否则不会删
+            )
+        )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
+        # for item in img_obj_list:
+        #     print("img_obj: ", item)
+        errors = minio_client.remove_objects(
+            bucket_name=MinIOConfig.minio_bucket_name,
+            delete_object_list=[
+                DeleteObject(img_obj.object_name) for img_obj in img_obj_list
+            ],
+        )
+        [logger.error(f"删除图片出错: {error}") for error in errors]
+
+        for img_context in img_context_list:
+            # 放图片进去
+            img_name = img_context.get("img_name")
+            minio_client.fput_object(
+                bucket_name=MinIOConfig.minio_bucket_name,
+                object_name=MinIOConfig.minio_img_dir + "/" + img_name,
+                file_path=img_context.get("img_path"),
+            )
+            # 获取图片url
+            img_context["url"] = (
+                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_name}"
+            )
+            # 5.依次替换md_content图片链接的内容
+            md_content = self.replace_md_content(img_context, md_content, md_path_obj)
+        return md_content
+
+    def replace_md_content(
+        self, img_context: dict, md_content: str, md_path_obj: Path
+    ) -> str:
+        """替换Markdown文件图片链接的内容
+
+        Args:
+            img_context (dict): 图片上下文
+            md_content (str): Markdown文档内容
+            md_path_obj (Path): Markdown文档路径Path对象
+
+        Returns:
+            str: 替换后的Markdown文档内容
+        """
+        pattern = re.compile(
+            r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
+        )
+        md_content = pattern.sub(
+            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
+            md_content,
+        )
+
+        # 内容写进新文件
+        new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
+        with open(new_md_path, "w", encoding="utf-8") as f:
+            f.write(md_content)
+        return md_content
 
 
 if __name__ == "__main__":
@@ -250,6 +304,5 @@ if __name__ == "__main__":
         "md_path": str(OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md"),
     }
     res = node_md_img(init_state)
-    # logger.info(res)
     print(f"整个流程: {time.time()-start=}s")
-
+    logger.info(json_format(res))

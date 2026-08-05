@@ -8,7 +8,7 @@ from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.json_format_tool import json_format
-import re, json
+import re
 
 
 class NodeDocumentSplit(NodeBase):
