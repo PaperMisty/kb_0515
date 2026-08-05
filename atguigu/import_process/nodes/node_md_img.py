@@ -29,12 +29,14 @@ class NodeMDImg(NodeBase):
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
         # 1.获取图片
-        md_img_path_list, content, md_img_path = self.get_img(state)
+        md_img_path_list, md_content, md_img_path = self.get_img(state)
         if not md_img_path_list:
             return state
 
         # 2.获取图片上下文
-        img_context_list = self.get_img_context(md_img_path_list, content, md_img_path)
+        img_context_list = self.get_img_context(
+            md_img_path_list, md_content, md_img_path
+        )
         if not img_context_list:
             return state
 
@@ -42,8 +44,12 @@ class NodeMDImg(NodeBase):
         img_context_list = self.get_img_abstract(img_context_list)
 
         # 4.将图片传进minio
-        md_content = self.upload_img_minio(
-            img_context_list, content, Path(state.get("md_path"))
+        img_context_list = self.upload_img_minio(
+            img_context_list, Path(state.get("md_path"))
+        )
+        # 5. Markdown文档内部图片url替换为线上url
+        md_content = self.replace_md_content(
+            img_context_list, md_content, Path(state.get("md_path"))
         )
         return {"md_content": md_content}
 
@@ -102,7 +108,9 @@ class NodeMDImg(NodeBase):
             pattern = re.compile(
                 r"!\[.*?\]\(.*?" + re.escape(img_name) + r"\)"
             )  # re.escape作用是把img_name的.字符转义,避免被re当做元字符
-            context_match = pattern.search(md_content)
+            context_match = pattern.search(
+                md_content
+            )  # TODO 只能找到第一次出现的位置,如果后面二次引用,上下文就不对了
 
             if not context_match:
                 logger.warning("image文件夹内的图片未被md引用")
@@ -222,9 +230,9 @@ class NodeMDImg(NodeBase):
         return img_context_list
 
     def upload_img_minio(
-        self, img_context_list: list[dict], md_content: str, md_path_obj: Path
-    ) -> str:
-        """将图片传进minio , 并替换md_content图片链接的内容
+        self, img_context_list: list[dict], md_path_obj: Path
+    ) -> list[dict]:
+        """将图片传进minio , 拼接图片的线上url
 
         Args:
             img_context_list (list[dict]): 图片相关信息的列表
@@ -269,37 +277,38 @@ class NodeMDImg(NodeBase):
             )
             # 获取图片url
             img_context["url"] = (
-                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{img_name}"
+                f"http://{MinIOConfig.minio_endpoint}/{MinIOConfig.minio_bucket_name}/{MinIOConfig.minio_img_dir}/{md_path_obj.stem}/{img_name}"
             )
-            # 5.依次替换md_content图片链接的内容
-            md_content = self.replace_md_content(img_context, md_content, md_path_obj)
-        return md_content
+
+        return img_context_list
 
     def replace_md_content(
-        self, img_context: dict, md_content: str, md_path_obj: Path
+        self, img_context_list: list[dict], md_content: str, md_path_obj: Path
     ) -> str:
         """替换Markdown文件图片链接的内容
 
         Args:
-            img_context (dict): 图片上下文
+            img_context_list (dict): 图片上下文列表
             md_content (str): Markdown文档内容
             md_path_obj (Path): Markdown文档路径Path对象
 
         Returns:
             str: 替换后的Markdown文档内容
         """
-        pattern = re.compile(
-            r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
-        )
-        md_content = pattern.sub(
-            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
-            md_content,
-        )
+        for img_context in img_context_list:
+            pattern = re.compile(
+                r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
+            )
+            md_content = pattern.sub(
+                f"![{img_context.get('img_summary')}]({img_context.get('url')})",
+                md_content,
+            )
 
         # 内容写进新文件
         new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
         with open(new_md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
+        logger.info(f"{new_md_path}文档内容写入成功")
         return md_content
 
 
