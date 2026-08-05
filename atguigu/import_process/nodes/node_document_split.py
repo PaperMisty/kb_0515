@@ -108,7 +108,7 @@ class NodeDocumentSplit(NodeBase):
                     )
                 current_index = idx
         # 补充最后一段的段落内容
-        last_section_list = md_content_list[current_index:]
+        last_section_list = [i.strip() for i in md_content_list[current_index:]]
         section_dict_list.append(
             {
                 "file_title": file_title,

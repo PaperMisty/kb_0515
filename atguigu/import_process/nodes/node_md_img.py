@@ -239,7 +239,9 @@ class NodeMDImg(NodeBase):
         img_obj_list = list(
             minio_client.list_objects(
                 bucket_name=MinIOConfig.minio_bucket_name,
-                prefix=MinIOConfig.minio_img_dir,
+                prefix=MinIOConfig.minio_img_dir
+                + "/"
+                + md_path_obj.stem,  # 给单个文档独立的图片空间,避免误删其他文档的
                 recursive=True,  # 递归删除文件夹内部内容, 否则不会删
             )
         )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
@@ -258,7 +260,11 @@ class NodeMDImg(NodeBase):
             img_name = img_context.get("img_name")
             minio_client.fput_object(
                 bucket_name=MinIOConfig.minio_bucket_name,
-                object_name=MinIOConfig.minio_img_dir + "/" + img_name,
+                object_name=MinIOConfig.minio_img_dir
+                + "/"
+                + md_path_obj.stem
+                + "/"
+                + img_name,
                 file_path=img_context.get("img_path"),
             )
             # 获取图片url
