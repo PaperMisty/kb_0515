@@ -11,6 +11,7 @@ ROOT_DIR = Path(__file__).parents[2]
 DATA_DIR = ROOT_DIR / "atguigu" / "data"
 RAW_DIR = DATA_DIR / "raw"
 OUTPUT_DIR = DATA_DIR / "output"
+TEST_DIR = ROOT_DIR / "test"
 
 
 class MineruConfig:

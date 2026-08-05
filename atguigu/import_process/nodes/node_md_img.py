@@ -1,4 +1,5 @@
 # atguigu/import_process/nodes/node_md_img.py
+import asyncio
 from atguigu.config.config import MinIOConfig
 from atguigu.tool.minio_client_tool import get_minio_client
 from atguigu.tool.minio_client_tool import minio_client
@@ -23,7 +24,7 @@ class NodeMDImg(NodeBase):
 
     name = "node_md_img"
 
-    def process(self, state: ImportGraphState):
+    def process(self, state: ImportGraphState) -> ImportGraphState:
         # 1.获取图片
         md_img_path_list, content, md_img_path = self.get_img(state)
         if not md_img_path_list:
@@ -43,7 +44,9 @@ class NodeMDImg(NodeBase):
         )
         return {"md_content": md_content}
 
-    def upload_img_minio(self, img_context_list, content, md_path_obj: Path):
+    def upload_img_minio(
+        self, img_context_list: list[dict], content: str, md_path_obj: Path
+    ) -> str:
         # 4.将图片传进minio
         minio_client = get_minio_client()
         # 幂等性删除图片
@@ -55,8 +58,8 @@ class NodeMDImg(NodeBase):
             )
         )  # 注意,生成器for一次后,就不能再for了,这也会导致没东西可删
         # print("len(img_obj_list)= ", len(img_obj_list))
-        for item in img_obj_list:
-            print("img_obj: ", item)
+        # for item in img_obj_list:
+        #     print("img_obj: ", item)
         errors = minio_client.remove_objects(
             bucket_name=MinIOConfig.minio_bucket_name,
             delete_object_list=[
@@ -82,23 +85,29 @@ class NodeMDImg(NodeBase):
             md_content = self.replace_md_content(img_context, content, md_path_obj)
         return md_content
 
-    def replace_md_content(self, img_context, content, md_path_obj: Path):
+    def replace_md_content(
+        self, img_context: dict, content: str, md_path_obj: Path
+    ) -> str:
         # 5.替换md_content图片链接的内容
         pattern = re.compile(
             r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
         )
         md_content = pattern.sub(
-            f"![{img_context.get('img_summary')}])({img_context.get('url')})",
+            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
             content,
         )
+        print(
+            "online_url: ",
+            f"![{img_context.get('img_summary')}]({img_context.get('url')})",
+        )
+
         # 内容写进新文件
         new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
-        print(new_md_path, type(new_md_path))
         with open(new_md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
         return md_content
 
-    def get_img(self, state: ImportGraphState):
+    def get_img(self, state: ImportGraphState) -> tuple[list[dict], str, Path]:
         # 判定文件路径存在性
         md_path_obj = Path(state.get("md_path"))
         md_path_obj = validate_path(md_path_obj, level="error")
@@ -117,7 +126,9 @@ class NodeMDImg(NodeBase):
             return [], content, md_img_path
         return md_img_path_list, content, md_img_path
 
-    def get_img_context(self, md_img_path_list, content, md_img_path):
+    def get_img_context(
+        self, md_img_path_list: list[dict], content: str, md_img_path: Path
+    ) -> list[dict]:
         # 2.遍历图片,获取上下文
         IMG_SUFFIX_SET = {".jpg", ".png", ".jpeg", ".gif", ".webp", ".bmp"}
         MAX_CONTEXT = 250
@@ -151,7 +162,16 @@ class NodeMDImg(NodeBase):
         logger.info(f"{md_img_path}内部的图片上下文获取完毕")
         return img_context_list
 
-    def get_img_abstract(self, img_context_list):
+    async def chat_batch(self, llm, messages) -> list[str]:
+        
+        start_time = time.time()
+        res_list = await llm.abatch(
+            inputs=messages
+        )  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
+        print("abatch用时: ", time.time() - start_time, "s:")
+        return res_list
+
+    def get_img_abstract(self, img_context_list: list[dict]) -> list[dict]:
         # 3.获取图片摘要
         # 初始化VLM模型
         llm = init_chat_model(
@@ -165,25 +185,25 @@ class NodeMDImg(NodeBase):
         # 设计令牌桶,防止限流-----bug: 可能不能打满请求RPM的80% ,而且尚未考虑TPM限制
         bucket = deque(maxlen=30)
         messages_list = []
-        for img_context in img_context_list:
-            start_time = time.time()
+        batch_contexts = []  # 增加一个临时列表，存放当前批次的 img_context 字典引用
+
+        for idx, img_context in enumerate(img_context_list):
             # 盲清一波队列
             while bucket and time.time() - bucket[0] > 60:
                 bucket.popleft()
-            # 如果满员, 睡一定时间,睡完再出队第一个, 并入队新的请求时间戳(通过睡眠来控制后文的请求频率)
+            # 如果满员, 睡一定时间,睡完再出队第一个
             if bucket and len(bucket) == bucket.maxlen:
                 time.sleep(60 - (time.time() - bucket[0]))
                 while bucket and time.time() - bucket[0] > 60:
                     bucket.popleft()
-            # 最开始, bucket为空队列, 可以快速打满30个请求, 并且append进去;(归根结底还是串行,而且不方便开协程优化)
             bucket.append(time.time())
-
             # 图片转Base64
             import base64
 
             with open(img_context.get("img_path"), "rb") as f:
                 b_content = f.read()
                 base64_code = base64.b64encode(b_content).decode("utf-8")
+
             # 构造提示词
             messages = [
                 {
@@ -204,20 +224,22 @@ class NodeMDImg(NodeBase):
                 },
             ]
             messages_list.append(messages)
-            res_list = []
-            if len(messages_list) == 10 or img_context == img_context_list[-1]:
+            batch_contexts.append(img_context)  # 将当前字典对象存入临时列表
 
-                async def chat_batch():
-                    res_list = await llm.abatch(
-                        inputs=messages
-                    )  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
-                    print("用时: ", time.time() - start_time, "s:")
+            # 判断是否达到 10 个，或者是最后一个元素
+            if len(messages_list) == 10 or idx == len(img_context_list) - 1:
+                res_list = asyncio.run(self.chat_batch(llm, messages_list))
+                for inner_idx, res in enumerate(res_list):
+                    # 直接通过临时列表对字典赋值，修改会同步反映到原始 img_context_list 中, 这是存在一个引用传递特性的
+                    batch_contexts[inner_idx]["img_summary"] = res.content
+                    print(f'{batch_contexts[inner_idx]["img_summary"]=}')
+                    print(f"{res.content[:20]=}")  # 示例演示
 
-            if res_list:
-                for res in res_list:
-                    img_context_list["img_summary"] = res.content
-                    print(res.content[:20])  # 示例演示
+                # 关键：处理完当前批次后，必须清空临时列表和消息列表
+                messages_list = []
+                batch_contexts = []
         logger.info("图片摘要获取完毕")
+
         return img_context_list
 
 
@@ -228,7 +250,6 @@ if __name__ == "__main__":
         "md_path": str(OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md"),
     }
     res = node_md_img(init_state)
-    logger.info(res)
-    print(f"{time.time()-start=}s")
+    # logger.info(res)
+    print(f"整个流程: {time.time()-start=}s")
 
-    # sudo ntpdate ntp.aliyun.com # Linux时间同步

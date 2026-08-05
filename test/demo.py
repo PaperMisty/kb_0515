@@ -1,12 +1,27 @@
-from pathlib import Path
+from atguigu.config.config import TEST_DIR
+import re
 
-img_context = {
-    "img_path": r'"D:\desktop\Markdown笔记\机器学习\langchain_tutorial\teacher_rag\kb_0515\.env.example"'
-}
-print(__file__, type(__file__))
-new_path = Path(__file__).parent / (Path(__file__).stem + "_new.md")
-# new_path = Path(img_context.get("img_path")).stem / "_new.md"
-# print(new_path)
+md_path_obj = str(TEST_DIR / "demo.md")
+print(type(md_path_obj))
+with open(md_path_obj, "r", encoding="utf-8") as f:
+    md_content = f.read()
+md_content.replace("\r\n", "\n").replace("\n\n", "\n")
+# 用换行符切割
+md_content_list = md_content.split("\n")
+# 判定是否处于代码块
+is_block = False
+signer = None
+title_pattern = r"^(`{3,}|~{3,})"
 
-
-print(new_path, type(new_path))
+for line in md_content_list:
+    line = line.strip()
+    matched = re.match(title_pattern, line)
+    if matched:
+        if not is_block:
+            is_block = True
+            signer = matched.group(1)
+            print(f"{line}")
+        elif signer == matched.group(1):
+            is_block = False
+            signer = None
+            print(f"{line}")
