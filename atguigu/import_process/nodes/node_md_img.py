@@ -108,27 +108,32 @@ class NodeMDImg(NodeBase):
             pattern = re.compile(
                 r"!\[.*?\]\(.*?" + re.escape(img_name) + r"\)"
             )  # re.escape作用是把img_name的.字符转义,避免被re当做元字符
-            context_match = pattern.search(
-                md_content
-            )  # TODO 只能找到第一次出现的位置,如果后面二次引用,上下文就不对了
+            context_match = list(
+                re.finditer(pattern, md_content)
+            )  # 如果用re.search 只能找到第一次出现的位置,如果后面二次引用,上下文就不对了
 
             if not context_match:
                 logger.warning("image文件夹内的图片未被md引用")
                 continue
-            start, end = context_match.span()
-            pre_context = md_content[max(start - MAX_CONTEXT, 0) : start]
-            post_context = md_content[
-                end : end + MAX_CONTEXT
-            ]  # 切片可以越下界,但不推荐越上界,越上界会出现负数,导致从末尾开始索引;
 
-            img_context_list.append(
-                {
-                    "img_name": img_name,
-                    "pre_context": pre_context,
-                    "post_context": post_context,  # 统一修改为 post_context，修复原先键值获取为 None 的 Bug
-                    "img_path": str(md_img_path / img_name),
-                }
-            )
+            # 遍历所有的匹配项
+            for _match in context_match:
+                # 取上下文
+                start, end = _match.span()
+                pre_context = md_content[max(start - MAX_CONTEXT, 0) : start]
+                post_context = md_content[
+                    end : end + MAX_CONTEXT
+                ]  # 切片可以越下界,但不推荐越上界,越上界会出现负数,导致从末尾开始索引;
+
+                img_context_list.append(
+                    {
+                        "img_name": img_name,
+                        "pre_context": pre_context,
+                        "post_context": post_context,  # 统一修改为 post_context，修复原先键值获取为 None 的 Bug
+                        "img_path": str(md_img_path / img_name),
+                        "span": (start, end),
+                    }
+                )
         logger.info(f"{md_img_path}内部的图片上下文获取完毕")
         return img_context_list
 
@@ -295,14 +300,17 @@ class NodeMDImg(NodeBase):
         Returns:
             str: 替换后的Markdown文档内容
         """
+        # 从后往前替换, 避免替换后影响后续索引,导致(start,end)索引失效
+        img_context_list = sorted(
+            img_context_list, key=lambda x: x["span"][0], reverse=True
+        )
+
         for img_context in img_context_list:
-            pattern = re.compile(
-                r"!\[.*?\]\(.*?" + re.escape(img_context.get("img_name")) + r"\)"
+            start, end = img_context["span"]
+            replacement = (
+                f"![{img_context.get('img_summary')}]({img_context.get('url')})"
             )
-            md_content = pattern.sub(
-                f"![{img_context.get('img_summary')}]({img_context.get('url')})",
-                md_content,
-            )
+            md_content = md_content[:start] + replacement + md_content[end:]
 
         # 内容写进新文件
         new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
@@ -318,6 +326,9 @@ if __name__ == "__main__":
     init_state = {
         "md_path": str(OUTPUT_DIR / "hak180产品安全手册" / "hak180产品安全手册.md"),
     }
+    # init_state = {
+    #     "md_path": str(OUTPUT_DIR / "demo" / "demo.md"),
+    # }
     res = node_md_img(init_state)
     print(f"整个流程: {time.time()-start=}s")
     logger.info(json_format(res))

@@ -94,7 +94,9 @@ class NodeDocumentSplit(NodeBase):
                 title_matched := re.match(title_pattern, line)
                 or idx == len(md_content_list) - 1
             ):
-                section_list = md_content_list[current_idx:idx]
+                section_list = md_content_list[
+                    current_idx : idx if idx < len(md_content_list) - 1 else idx + 1
+                ]
                 section_content = "\n".join(section_list)
                 if section_list:
                     # 包装段落信息
