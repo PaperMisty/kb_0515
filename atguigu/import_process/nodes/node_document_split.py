@@ -21,10 +21,10 @@ class NodeDocumentSplit(NodeBase):
     def process(self, state: ImportGraphState):
         # 1.获取Markdown文本内容,以换行符切分为列表
         md_content_list, file_title, md_path_obj = self.get_md_content(state)
-        # 2.获取Markdown每个章节内容
-        section_dict_list = self.split_section(md_content_list, file_title)
-        # 3.将每个章节切分为chunks并保存
-        chunk_dict_list = self.split_chunks(section_dict_list, file_title, md_path_obj)
+        # 2.获取Markdown每个章节内容,将每个章节切分为chunks
+        chunk_dict_list = self.split_section(md_content_list, file_title)
+        # 3.保存
+        self.save_chunks_json(md_path_obj, chunk_dict_list)
         # 4.返回chunks详细信息
         return {"chunk_dict_list": chunk_dict_list}
 
@@ -45,17 +45,18 @@ class NodeDocumentSplit(NodeBase):
         """
         md_path_obj = Path(state.get("md_path"))
         md_path_obj = validate_path(md_path_obj, "error")
-        file_title = state.get("file_title")
-        if not file_title:
-            file_title = md_path_obj.stem
-        # 统一化换行符
         with open(md_path_obj, "r", encoding="utf-8") as f:
             md_content = f.read()
         if not md_content:
-            logger.error(f"{md_path_obj}文件无内容")
-            raise Exception(f"{md_path_obj}文件无内容")
+            logger.debug(f"{md_path_obj}无内容")
+            return {}
+
+        file_title = state.get("file_title")
+        if not file_title:
+            file_title = md_path_obj.stem
+
+        # 统一换行符
         md_content = md_content.replace("\r\n", "\n").replace("\n\n", "\n")
-        # 用换行符切割
         md_content_list = md_content.split("\n")
         return md_content_list, file_title, md_path_obj
 
@@ -69,59 +70,49 @@ class NodeDocumentSplit(NodeBase):
         Returns:
             list[dict]: 切分后的段落信息
         """
-        # 逐行处理
         is_block = False
-        signer = None
+        code_fence = None
         code_pattern = r"^(`{3,}|~{3,})"
-        # 匹配 Markdown 标题：1-6个 # 号 + 空格 + 标题内容
-        title_pattern = r"^(#{1,6})\s+.*"
 
-        current_index = 0
-        section_dict_list = []
+        current_idx = 0
+        chunk_dict_list = []
         for idx, line in enumerate(md_content_list):
             line = line.strip()
-            matched = re.match(code_pattern, line)
-            # 判定是否处于代码块
-            if matched:
-                if is_block == False:
+            code_matched = re.match(code_pattern, line)
+            # 判断是否处于代码围栏内
+            if code_matched:
+                if not is_block:
                     is_block = True
-                    signer = matched.group(1)
-                elif signer == matched.group(1):
+                    code_fence = code_matched.group(1)
+                elif code_fence == code_matched.group(1):
                     is_block = False
-                    signer = None
+                    code_fence = None
 
-            # 判断是否遇到代码块外的 # 标题, 是则提取上一段的段落
-            if not is_block and (match_obj := re.match(title_pattern, line)):
-                temp_list = md_content_list[current_index:idx]
-                section_content = "\n".join(temp_list)  # 列表转文本
-                if temp_list:  # 避免首个匹配就是标题,导致temp_list为空的情况
-                    section_dict_list.append(
-                        {
-                            "file_title": file_title,
-                            "section_title": (
-                                temp_list[0]
-                                if section_content.startswith("#")
-                                else "介绍"  # 只有第一个无标题内容才会触发此 介绍
-                            ),
-                            "section_content": section_content,
-                        }
+            title_pattern = r"^(#{1,6})\s+.*"
+            # 如果不在代码围栏, 且触发了标题判定或触发最后一行判定, 则开始按标题切分
+            if not is_block and (
+                title_matched := re.match(title_pattern, line)
+                or idx == len(md_content_list) - 1
+            ):
+                section_list = md_content_list[current_idx:idx]
+                section_content = "\n".join(section_list)
+                if section_list:
+                    # 包装段落信息
+                    section_title = (
+                        section_list[0] if section_content.startswith("#") else "摘要"
                     )
-                current_index = idx
-        # 补充最后一段的段落内容
-        last_section_list = [i.strip() for i in md_content_list[current_index:]]
-        section_dict_list.append(
-            {
-                "file_title": file_title,
-                "section_title": last_section_list[0],
-                "section_content": "\n".join(last_section_list),
-            }
-        )
-        return section_dict_list
+                    _chunk_dict_list = self.split_chunks(
+                        file_title, section_title, section_content
+                    )
+                    chunk_dict_list.extend(_chunk_dict_list)
+                current_idx = idx
+        return chunk_dict_list
 
     def split_chunks(
-        self, section_dict_list: list[dict], file_title: str, md_path_obj: Path
+        self, file_title: str, section_title: str, section_content: str
     ) -> list[dict]:
-        """递归切割器切分段落
+        """递归切割器切分段落,给每个Chunk分配段落标题,
+        对于含有HTML的和小于MAX_LENGTH的暂不切分
 
         Args:
             section_dict_list (list[dict]): 段落信息
@@ -130,7 +121,6 @@ class NodeDocumentSplit(NodeBase):
         Returns:
             ImportGraphState: Graph对象
         """
-        # 切分chunk
         MAX_LENGTH = 300
         CHUNK_OVERLAP = 30
         chunk_dict_list = []
@@ -139,34 +129,19 @@ class NodeDocumentSplit(NodeBase):
             chunk_size=MAX_LENGTH,
             chunk_overlap=CHUNK_OVERLAP,
         )
-        for section_dict in section_dict_list:
-            # 将段落剔除出标题
-            section_title = section_dict.get("section_title")
-            section_content = section_dict.get("section_content")
-            real_section_content = (
-                section_content[len(section_title) :]
-                if section_content.startswith("#")
-                else section_content
+        if len(section_content) < 300 or "<table" in section_content:
+            chunk_dict_list.append(
+                {
+                    "file_title": file_title,
+                    "section_title": section_title,
+                    "chunk_content": section_content,
+                    "part": 0,
+                }
             )
-            # 对于特殊段落,不做切分
-            # TODO:对于连续少文本的含标题段落,会错过短合; 对于长文本<table>需要二次拆分
-            if (
-                len(real_section_content) < MAX_LENGTH
-                or "<table"
-                in real_section_content  # 兼容 <table border="1"> 带属性的标签。
-            ):
-                chunk_dict_list.append(
-                    {
-                        "file_title": file_title,
-                        "section_title": section_title,
-                        "chunk_content": section_content,
-                        "part": 0,
-                    }
-                )
-                continue
-            # 对于常规段落,用递归切割器切分
+        else:
+            real_section_content = section_content[len(section_title) :]  # 去除段落标题
             chunk_list = spliter.split_text(real_section_content)
-            for idx, chunk in enumerate(chunk_list, start=1):
+            for idx, chunk in enumerate(chunk_list, 1):
                 chunk_dict_list.append(
                     {
                         "file_title": file_title,
@@ -175,12 +150,25 @@ class NodeDocumentSplit(NodeBase):
                         "part": idx,
                     }
                 )
-        # 保存切分结果
-        chunk_path = md_path_obj.parents[0] / file_title
-        with open(str(chunk_path) + "_chunks.json", "w", encoding="utf-8") as f:
-            f.write(json_format(chunk_dict_list))
-
         return chunk_dict_list
+
+    def save_chunks_json(self, md_path_obj: Path, chunk_dict_list: list[dict]):
+        """保存Markdown文档已切分的chunks信息
+
+        Args:
+            md_path_obj (Path):
+            chunk_dict_list (list[dict]):
+        """
+        chunks_json_path = (
+            str(md_path_obj.parent) + "/" + md_path_obj.stem + "_chunks.json"
+        )
+        with open(
+            chunks_json_path,
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write(json_format(chunk_dict_list))
+        logger.info(f"{chunks_json_path}文件成功写入")
 
 
 if __name__ == "__main__":
