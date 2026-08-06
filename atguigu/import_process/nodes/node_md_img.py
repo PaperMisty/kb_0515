@@ -8,6 +8,7 @@ from atguigu.tool.logger import logger
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.validate_path import validate_path
+from atguigu.tool.limiter import async_rate_limiter
 from pathlib import Path
 import os, re, time, base64
 from rich import print
@@ -26,6 +27,9 @@ class NodeMDImg(NodeBase):
     """
 
     name = "node_md_img"
+    RPM = 3000
+    PERIOD = 60
+    llm_batch = 30
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
         # 1.获取图片
@@ -137,6 +141,8 @@ class NodeMDImg(NodeBase):
         logger.info(f"{md_img_path}内部的图片上下文获取完毕")
         return img_context_list
 
+    #  设计令牌桶/限流器,防止服务端限流报错-----尚未考虑TPM限制
+    @async_rate_limiter(max_calls=(RPM // llm_batch), period=PERIOD)
     async def chat_batch(self, llm, messages) -> list[str]:
         """异步批量处理图片摘要请求, 提高RPM
 
@@ -174,22 +180,10 @@ class NodeMDImg(NodeBase):
             temperature=LLMConfig.temperature,
         )
 
-        # 设计令牌桶,防止限流-----bug: 可能不能打满请求RPM的80% ,而且尚未考虑TPM限制
-        # TODO:可以换成三层嵌套装饰器来限流,代码或许更美观
-        bucket = deque(maxlen=30)
         messages_list = []
         batch_contexts = []  # 增加一个临时列表，存放当前批次的 img_context 字典引用
 
         for idx, img_context in enumerate(img_context_list):
-            # 盲清一波队列
-            while bucket and time.time() - bucket[0] > 60:
-                bucket.popleft()
-            # 如果满员, 睡一定时间,睡完再出队第一个
-            if bucket and len(bucket) == bucket.maxlen:
-                time.sleep(60 - (time.time() - bucket[0]))
-                while bucket and time.time() - bucket[0] > 60:
-                    bucket.popleft()
-            bucket.append(time.time())
 
             with open(img_context.get("img_path"), "rb") as f:
                 b_content = f.read()
@@ -220,9 +214,10 @@ class NodeMDImg(NodeBase):
             messages_list.append(messages)
             batch_contexts.append(img_context)  # 将当前字典对象存入临时列表
 
-            # 判断是否达到 10 个，或者是最后一个元素
-            if len(messages_list) == 10 or idx == len(img_context_list) - 1:
+            # 判断是否达到 llm_batch 个，或者是最后一个元素
+            if len(messages_list) == self.llm_batch or idx == len(img_context_list) - 1:
                 res_list = asyncio.run(self.chat_batch(llm, messages_list))
+
                 for inner_idx, res in enumerate(res_list):
                     # 直接通过临时列表对字典赋值，修改会同步反映到原始 img_context_list 中, 这是存在一个引用传递特性的
                     batch_contexts[inner_idx]["img_summary"] = res.content
