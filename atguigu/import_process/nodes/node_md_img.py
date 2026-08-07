@@ -160,7 +160,6 @@ class NodeMDImg(NodeBase):
         print("abatch用时: ", time.time() - start_time, "s:")
         return res_list
 
-    # TODO:可以把[摘要生成]的函数调用进[图片上下文获取]函数的for里面, 可能需要用闭包管理批次batch
     def get_img_abstract(self, img_context_list: list[dict]) -> list[dict]:
         """获取图片摘要
 
