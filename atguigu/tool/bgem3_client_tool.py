@@ -38,6 +38,6 @@ def get_bgem3_embedding(texts: list[str]):
 
 
 if __name__ == "__main__":
-    texts = ["hello,world", "hello milvus"]
+    texts = ["hello world", "hello milvus"]
     res = get_bgem3_embedding(texts=texts)
     print(json_format(res))
