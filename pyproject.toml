@@ -3,7 +3,7 @@ name = "kb-0515"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9"  # 在代码设计上支持 Python 3.9 及以上的任何版本（包含 3.9、3.10、3.11、3.12 等）。
+requires-python = ">=3.10"  # 
 dependencies = [
     "colorlog>=6.12.0",
     "fastapi>=0.128.8",
