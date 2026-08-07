@@ -25,3 +25,7 @@ def get_embeddings(text_list):
         "dense": [list(d) for d in embeddings["dense"]],
         "sparse": [dict(zip(row.indices, row.data)) for row in embeddings["sparse"]],
     }
+
+
+if __name__ == "__main__":
+    get_bge_embedding_model()
