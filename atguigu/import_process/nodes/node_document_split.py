@@ -90,29 +90,18 @@ class NodeDocumentSplit(NodeBase):
 
             title_pattern = r"^(#{1,6})\s+.*"
             # 如果不在代码围栏, 且触发了标题判定或触发最后一行判定, 则开始按标题切分
-            if not is_block and (
-                title_matched := re.match(title_pattern, line)
-                or idx == len(md_content_list) - 1
-            ):
-                section_list = md_content_list[
-                    current_idx : idx if idx < len(md_content_list) - 1 else idx + 1
-                ]
+            if not is_block and (title_matched := re.match(title_pattern, line) or idx == len(md_content_list) - 1):
+                section_list = md_content_list[current_idx : idx if idx < len(md_content_list) - 1 else idx + 1]
                 section_content = "\n".join(section_list)
                 if section_list:
                     # 包装段落信息
-                    section_title = (
-                        section_list[0] if section_content.startswith("#") else "摘要"
-                    )
-                    _chunk_dict_list = self.split_chunks(
-                        file_title, section_title, section_content
-                    )
+                    section_title = section_list[0] if section_content.startswith("#") else "摘要"
+                    _chunk_dict_list = self.split_chunks(file_title, section_title, section_content)
                     chunk_dict_list.extend(_chunk_dict_list)
                 current_idx = idx
         return chunk_dict_list
 
-    def split_chunks(
-        self, file_title: str, section_title: str, section_content: str
-    ) -> list[dict]:
+    def split_chunks(self, file_title: str, section_title: str, section_content: str) -> list[dict]:
         """递归切割器切分段落,给每个Chunk分配段落标题,
         对于含有HTML的和小于MAX_LENGTH的暂不切分
 
@@ -154,16 +143,14 @@ class NodeDocumentSplit(NodeBase):
                 )
         return chunk_dict_list
 
-    def save_chunks_json(self, md_path_obj: Path, chunk_dict_list: list[dict]):
+    def save_chunks_json(self, md_path_obj: Path, chunk_dict_list: list[dict]) -> None:
         """保存Markdown文档已切分的chunks信息
 
         Args:
             md_path_obj (Path):
             chunk_dict_list (list[dict]):
         """
-        chunks_json_path = (
-            str(md_path_obj.parent) + "/" + md_path_obj.stem + "_chunks.json"
-        )
+        chunks_json_path = str(md_path_obj.parent) + "/" + md_path_obj.stem + "_chunks.json"
         with open(
             chunks_json_path,
             "w",

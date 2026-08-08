@@ -2,9 +2,7 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
-load_dotenv(
-    override=True
-)  # override=True强制用 .env 文件中的值覆盖掉系统环境变量的值。
+load_dotenv(override=True)  # override=True强制用 .env 文件中的值覆盖掉系统环境变量的值。
 # load_dotenv 从当前目录开始，递归向上查找.env文件。最先找到的那个.env文件会被加载。
 
 ROOT_DIR = Path(__file__).parents[2]
@@ -42,3 +40,9 @@ class EmbeddingConfig:
     bge_device = os.getenv("BGE_DEVICE")
     # 特殊处理：将.env中的1/0转为布尔值，兼容常见的数字/字符串格式
     bge_fp16 = os.getenv("BGE_FP16") in ("1", "True", "true", 1)
+
+
+class MilvusConfig:
+    milvus_url = os.getenv("MILVUS_URL")
+    chunks_collection = os.getenv("CHUNKS_COLLECTION")
+    item_name_collection = os.getenv("ITEM_NAME_COLLECTION")

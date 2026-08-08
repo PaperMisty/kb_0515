@@ -27,3 +27,5 @@ dependencies = [
     "modelscope>=1.39.1",
 ]
 
+[tool.black]
+line-length = 120

@@ -17,14 +17,16 @@ def get_bgem3_model():
     return bge_m3_model
 
 
-def get_bgem3_embedding(texts: list[str]):
+def get_bgem3_embedding(
+    texts: list[str],
+) -> dict[str, list[list[float]] | dict[int, list[float]]]:
     """把文本列表转为稀疏和稠密向量
 
     Args:
         texts (list[str]): 文本列表
 
     Returns:
-        _type_: 稀疏和稠密向量
+        dict: 稀疏和稠密向量
     """
     model = get_bgem3_model()
     embeddings = model.encode_documents(texts)
@@ -40,4 +42,4 @@ def get_bgem3_embedding(texts: list[str]):
 if __name__ == "__main__":
     texts = ["hello world", "hello milvus"]
     res = get_bgem3_embedding(texts=texts)
-    print(json_format(res))
+    print(json_format(res["sparse"]))
