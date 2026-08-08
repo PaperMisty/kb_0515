@@ -37,12 +37,10 @@ class NodeBGEEmbedding(NodeBase):
         # 按批次拼接chunks中的内容，
         for i in range(0, len(chunks), 3):
             chunk_temp = chunks[i : i + 3]
-            content_list = []
+            content_list = [f"{chunk['item_name']}\n{chunk['chunk_content']}" for chunk in chunk_temp]
+            # 通过bgem3模型获取向量
+            vector_data = get_bgem3_embedding(content_list)
             for idx, chunk in enumerate(chunk_temp):
-                content = f"{chunk['file_title']}\n{chunk['item_name']}\n{chunk['section_title']}\n{chunk['chunk_content']}\n{chunk['part']}"
-                content_list.append(content)
-                # 通过bgem3模型获取向量
-                vector_data = get_bgem3_embedding(content_list)
                 chunk["dense"] = vector_data["dense"][idx]  # 利用[列表]和[字典值]可变性增加字段
                 chunk["sparse"] = vector_data["sparse"][idx]
 
