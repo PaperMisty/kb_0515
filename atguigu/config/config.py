@@ -46,3 +46,8 @@ class MilvusConfig:
     milvus_url = os.getenv("MILVUS_URL")
     chunks_collection = os.getenv("CHUNKS_COLLECTION")
     item_name_collection = os.getenv("ITEM_NAME_COLLECTION")
+
+
+class MongoConfig:
+    mongo_url = os.getenv("mongo_url")
+    mongo_db_name = os.getenv("mongo_db_name")
