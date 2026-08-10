@@ -43,7 +43,7 @@ class NodeDocumentSplit(NodeBase):
             list[str]: markdown按换行分割后的每行文本组成的列表，不含原始\r\n换行符。
             file_title: 有效的文件名
         """
-        md_path_obj = Path(state.get("md_path"))
+        md_path_obj = Path(state.get("md_path", ""))
         md_path_obj = validate_path(md_path_obj, "error")
         with open(md_path_obj, "r", encoding="utf-8") as f:
             md_content = f.read()

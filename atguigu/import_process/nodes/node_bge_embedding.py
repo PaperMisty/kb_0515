@@ -46,7 +46,7 @@ class NodeBGEEmbedding(NodeBase):
                 chunk["sparse"] = vector_data["sparse"][idx]
 
         # 新chunk写进json文件
-        md_path_obj = Path(state.get("md_path"))
+        md_path_obj = Path(state.get("md_path", ""))
         md_path_obj = validate_path(md_path_obj, "error")
 
         with open(md_path_obj.parent / f"{md_path_obj.stem}_embedding_chunks.json", "w", encoding="utf-8") as f:

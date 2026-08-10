@@ -26,11 +26,11 @@ class NodeItemNameRecognition(NodeBase):
     name = "node_item_name_recognition"
 
     def process(self, state: ImportGraphState):
-        chunks = state.get("chunk_data")
+        chunks = state.get("chunk_dict_list")
         if not chunks:
-            logger.error(f"chunk_data无内容,必须传入值,进行主体识别")
-            raise ValueError(f"chunk_data无内容,必须传入值,进行主体识别")
-        md_path_obj = Path(state.get("md_path"))
+            logger.error(f"chunk无内容,必须传入值,进行主体识别")
+            raise ValueError(f"chunk无内容,必须传入值,进行主体识别")
+        md_path_obj = Path(state.get("md_path", ""))
         md_path_obj = validate_path(md_path_obj, "error")
 
         # 1. 通过llm总结获取主体名称和文件标题

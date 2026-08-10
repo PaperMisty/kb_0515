@@ -38,9 +38,7 @@ class NodeMDImg(NodeBase):
             return state
 
         # 2.获取图片上下文
-        img_context_list = self.get_img_context(
-            md_img_path_list, md_content, md_img_path
-        )
+        img_context_list = self.get_img_context(md_img_path_list, md_content, md_img_path)
         if not img_context_list:
             return state
 
@@ -48,14 +46,12 @@ class NodeMDImg(NodeBase):
         img_context_list = self.get_img_abstract(img_context_list)
 
         # 4.将图片传进minio
-        img_context_list = self.upload_img_minio(
-            img_context_list, Path(state.get("md_path"))
-        )
+        img_context_list = self.upload_img_minio(img_context_list, Path(state.get("md_path", "")))
         # 5. Markdown文档内部图片url替换为线上url
-        md_content = self.replace_md_content(
-            img_context_list, md_content, Path(state.get("md_path"))
-        )
-        return {"md_content": md_content}
+        md_path_obj = Path(state.get("md_path", ""))
+        md_content = self.replace_md_content(img_context_list, md_content, md_path_obj)
+        new_md_path = md_path_obj.parents[0] / (md_path_obj.stem + "_new.md")
+        return {"md_content": md_content, "md_path": str(new_md_path)}
 
     def get_img(self, state: ImportGraphState) -> tuple[list[dict], str, Path]:
         """获取Markdown文档的图片内容
@@ -70,7 +66,7 @@ class NodeMDImg(NodeBase):
             tuple[list[dict], str, Path]: 图片路径,文档内容, 文档路径
         """
         # 判定文件路径存在性
-        md_path_obj = Path(state.get("md_path"))
+        md_path_obj = Path(state.get("md_path", ""))
         md_path_obj = validate_path(md_path_obj, level="error")
         with open(md_path_obj, "r", encoding="utf-8") as f:
             md_content = f.read()
@@ -87,9 +83,7 @@ class NodeMDImg(NodeBase):
             return [], md_content, md_img_path
         return md_img_path_list, md_content, md_img_path
 
-    def get_img_context(
-        self, md_img_path_list: list[dict], md_content: str, md_img_path: Path
-    ) -> list[dict]:
+    def get_img_context(self, md_img_path_list: list[dict], md_content: str, md_img_path: Path) -> list[dict]:
         """根据图片获取上下文
 
         Args:
@@ -228,9 +222,7 @@ class NodeMDImg(NodeBase):
 
         return img_context_list
 
-    def upload_img_minio(
-        self, img_context_list: list[dict], md_path_obj: Path
-    ) -> list[dict]:
+    def upload_img_minio(self, img_context_list: list[dict], md_path_obj: Path) -> list[dict]:
         """将图片传进minio , 拼接图片的线上url
 
         Args:
@@ -256,9 +248,7 @@ class NodeMDImg(NodeBase):
         #     print("img_obj: ", item)
         errors = minio_client.remove_objects(
             bucket_name=MinIOConfig.minio_bucket_name,
-            delete_object_list=[
-                DeleteObject(img_obj.object_name) for img_obj in img_obj_list
-            ],
+            delete_object_list=[DeleteObject(img_obj.object_name) for img_obj in img_obj_list],
         )
         [logger.error(f"删除图片出错: {error}") for error in errors]
 
@@ -267,11 +257,7 @@ class NodeMDImg(NodeBase):
             img_name = img_context.get("img_name")
             minio_client.fput_object(
                 bucket_name=MinIOConfig.minio_bucket_name,
-                object_name=MinIOConfig.minio_img_dir
-                + "/"
-                + md_path_obj.stem
-                + "/"
-                + img_name,
+                object_name=MinIOConfig.minio_img_dir + "/" + md_path_obj.stem + "/" + img_name,
                 file_path=img_context.get("img_path"),
             )
             # 获取图片url
@@ -281,9 +267,7 @@ class NodeMDImg(NodeBase):
 
         return img_context_list
 
-    def replace_md_content(
-        self, img_context_list: list[dict], md_content: str, md_path_obj: Path
-    ) -> str:
+    def replace_md_content(self, img_context_list: list[dict], md_content: str, md_path_obj: Path) -> str:
         """替换Markdown文件图片链接的内容
 
         Args:
@@ -295,15 +279,11 @@ class NodeMDImg(NodeBase):
             str: 替换后的Markdown文档内容
         """
         # 从后往前替换, 避免替换后影响后续索引,导致(start,end)索引失效
-        img_context_list = sorted(
-            img_context_list, key=lambda x: x["span"][0], reverse=True
-        )
+        img_context_list = sorted(img_context_list, key=lambda x: x["span"][0], reverse=True)
 
         for img_context in img_context_list:
             start, end = img_context["span"]
-            replacement = (
-                f"![{img_context.get('img_summary')}]({img_context.get('url')})"
-            )
+            replacement = f"![{img_context.get('img_summary')}]({img_context.get('url')})"
             md_content = md_content[:start] + replacement + md_content[end:]
 
         # 内容写进新文件

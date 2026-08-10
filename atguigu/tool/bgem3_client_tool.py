@@ -32,14 +32,11 @@ def get_bgem3_embedding(
     embeddings = model.encode_documents(texts)
     return {
         "dense": [list(vec.tolist()) for vec in embeddings.get("dense")],
-        "sparse": [
-            dict(zip(vec.indices.tolist(), vec.data.tolist()))
-            for vec in embeddings.get("sparse")
-        ],
+        "sparse": [dict(zip(vec.indices.tolist(), vec.data.tolist())) for vec in embeddings.get("sparse")],
     }
 
 
 if __name__ == "__main__":
     texts = ["hello world", "hello milvus"]
     res = get_bgem3_embedding(texts=texts)
-    print(json_format(res["sparse"]))
+    # print(json_format(res["sparse"]))
