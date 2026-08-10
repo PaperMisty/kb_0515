@@ -35,8 +35,9 @@ class NodeBGEEmbedding(NodeBase):
             raise ValueError("chunk_dict_list无内容,必须传入值,进行向量化")
 
         # 按批次拼接chunks中的内容，
-        for i in range(0, len(chunks), 3):
-            chunk_temp = chunks[i : i + 3]
+        batch_size = 10
+        for i in range(0, len(chunks), batch_size):
+            chunk_temp = chunks[i : i + batch_size]
             content_list = [f"{chunk['item_name']}\n{chunk['chunk_content']}" for chunk in chunk_temp]
             # 通过bgem3模型获取向量
             vector_data = get_bgem3_embedding(content_list)

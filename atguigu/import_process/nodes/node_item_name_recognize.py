@@ -93,7 +93,7 @@ class NodeItemNameRecognition(NodeBase):
         """
         # 创建milvus表
         client = get_milvus_client()
-        collection = MilvusConfig.chunks_collection
+        collection = MilvusConfig.item_name_collection
         if not client.has_collection(collection_name=collection):
             schema: CollectionSchema = client.create_schema(auto_id=True)
             schema.add_field(
