@@ -50,7 +50,7 @@ def get_recent_history_list(session_id, limit=10) -> list:
 
 
 # 增加or更新数据
-def add_or_update_data(data_dict: dict, _id=None) -> int:
+def add_or_update_data(data_dict: dict, _id: ObjectId = None) -> str:
     """根据是否有_id传入或data_dict中是否含_id, 决定更改还是增添数据
 
     Args:
@@ -165,3 +165,38 @@ if __name__ == "__main__":
 
     # 测试:更新会话特定字段数据
     # update_item_name_and_query(session_id, "查询 hak180 烫金机的问题_test", ["hak180_test", "烫金机_test"])
+
+"""
+================================================================================
+【排查记录与重构总结】
+
+在此前的开发和测试中，遇到了以下关键问题及对应的解决方案：
+
+1. Database 对象的布尔值测试报错 (NotImplementedError)
+   - 问题：原先使用 `if not db` 和 `if not collection` 来检测全局连接对象。在 PyMongo 中，
+     Database 和 Collection 对象不支持直接作布尔测试，否则会抛出 NotImplementedError 异常。
+   - 解决：重构为与 None 显式对比，即使用 `if db is None:` 和 `if collection is None:`。
+
+2. 复合（联合）索引设计不合理与拼写 Bug
+   - 问题：原先建立的联合索引为 `[("_id", 1), ("ts", -1), ("session_id", 1)]`。由于主键 _id 放在最左侧，
+     在执行 find({"session_id": ...}) 时无法命中索引（且 _id 默认自带唯一索引，此项联合设计多余）。
+     同时在查询中将 session_id 拼错为了 "sesstion_id"。
+   - 解决：根据 MongoDB 的 ESR（等值匹配在前，排序在后）规则，重构索引为更合理的 `[("session_id", 1), ("ts", -1)]`。
+     同时在所有的 find、delete 和 update 查询中修正了 session_id 的拼写。
+
+3. upsert无法直接实现自动识别是更新还是插入
+   - 问题：原先使用 update_one(..., upsert=True) 来实现自动识别是更新还是插入，但是会产生错误_id传入导致新增数据的bug
+                 后来使用 uodate_one({'_id':target_id} if target_id else {}, {...},upsert=False if target_id else True)的模式,发现使用{}这个filter, update此刻会对表进行覆写
+   - 解决：重构为 if-else 结构，先判断 _id 是否存在，如果存在则更新，否则插入。
+
+4. 意图更新方法 update_item_name_and_query 的语法嵌套错误
+   - 问题：原 collection.update_one 中 $and / $or 错误写成了双大括号的形式（如 {{$or: ...}}），导致 Python 报 SyntaxError。
+   - 解决：将其改写为了标准的 PyMongo 字典和列表嵌套表达形式，并采用 update_many 提高意图重写时的覆盖稳健度。
+
+5. 数据库不可进行布尔测试
+   - 问题：原先使用 `if not db` 和 `if not collection` 来检测全局连接对象。在 PyMongo 中，
+     Database 和 Collection 对象不支持直接作布尔测试，否则会抛出 NotImplementedError 异常。
+   - 解决：重构为与 None 显式对比，即使用 `if db is None:` 和 `if collection is None:`。
+
+================================================================================
+"""
