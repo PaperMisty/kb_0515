@@ -38,11 +38,11 @@ def get_recent_history_list(session_id, limit=10) -> list:
     """获取特定会话的最近10条记录
 
     Args:
-        session_id (_type_): _description_
-        limit (int, optional): _description_. Defaults to 10.
+        session_id (_type_): 会话id
+        limit (int, optional): 按时间降序的前n条. Defaults to 10.
 
     Returns:
-        list: _description_
+        list:会话内容列表
     """
     collection = get_collection()
     res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
@@ -65,15 +65,18 @@ def add_or_update_data(data_dict: dict, _id=None) -> int:
     session_id = data_dict.get("session_id", "unknown")
 
     if target_id:
-        # 将 _id 从更新数据中剔除，防止触发修改主键 _id 的报错，并用 $set 包裹以实现局部更新
+        # 将 _id 从更新数据中剔除，防止触发修改主键 _id 的报错，并用 $set 包裹实现局部更新
+        # upsert 保持默认的 False：如果找不到 target_id，直接不更新且不会发生静默新增，保证了业务语义的安全
         update_content = {k: v for k, v in data_dict.items() if k != "_id"}
         collection.update_one({"_id": target_id}, {"$set": update_content})
         logger.info(f"Session {session_id} history updated (ID: {target_id}).")
         return target_id
     else:
+        # 显式调用 insert_one 仅用于新增插入，确保新建语义清晰纯粹
         res = collection.insert_one(data_dict)
         logger.info(f"Session {session_id} history added (ID: {res.inserted_id}).")
         return res.inserted_id
+    #     return res.inserted_id
 
 
 # 清除指定会话的数据
@@ -104,7 +107,7 @@ def update_item_name_and_query(session_id, rewritten_query: str, item_names: lis
 if __name__ == "__main__":
     session_id = "test_001"
     # 测试:清除指定session_id的数据
-    # clear_history(session_id)
+    clear_history(session_id)
 
     # 测试:添加数据
     # data_dict = {
@@ -147,10 +150,10 @@ if __name__ == "__main__":
     # }
     # add_or_update_data(data_dict)
 
-    # 测试:查询数据
-    # history_list = get_recent_history_list(session_id)
-    # for history in history_list:
-    #     print(history)
+    # 测试: 查询数据
+    history_list = get_recent_history_list(session_id)
+    for history in history_list:
+        print(history)
 
     # 测试:更新数据
     # data_dict = {
