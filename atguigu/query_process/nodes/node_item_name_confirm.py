@@ -98,14 +98,20 @@ class NodeItemNameConfirm(NodeBase):
         # 将llm的返回结果清洗和解析为字典
         content_json = json.loads(content)
 
-        # - 这里没有采用default [], 是因为可能存在item_names这个key,但是key无内容,导致返回值不是列表[], 而是空字符串了
+        # - 这里没有采用default [], 是因为可能存在item_names this key,但是key无内容,导致返回值不是列表[], 而是空字符串了
         rewritten_query = content_json.get("rewritten_query", "")
         item_names = content_json.get("item_names", "")
+
+        # 核心对齐控制变量初始化，防御 item_names 为空时发生 NameError/UnboundLocalError
+        final_item_lst = []
+        choosed_item_lst = []
+        optional_item_lst = []
+        answer = ""
 
         # - 防御没有提取到意图重写内容
         if not rewritten_query:
             logger.warning("未提取到意图重写内容，直接使用原查询")
-            content_json["rewritten_query"] = original_query
+            rewritten_query = original_query
 
         # - 防御没有提取到商品名称
         if not item_names:
@@ -119,8 +125,6 @@ class NodeItemNameConfirm(NodeBase):
             # ===根据LLM提取的主体,依次去数据库检索相关主体===
             # 取item_names的向量化
             vecs = get_bgem3_embedding(item_names)
-            choosed_item_lst = []
-            optional_item_lst = []
             for idx, item_name in enumerate(item_names):
                 # 取稀疏和稠密向量的检索请求
                 reqs = create_reqs(
@@ -141,37 +145,36 @@ class NodeItemNameConfirm(NodeBase):
                 # print(json_format(result))
 
                 # ===取出数据库相关主体的信息,与用户意图商品名称对齐===
-
                 if not result:
                     logger.warning(f"商品[{item_name}]在数据库中没有搜索到相关内容")
                     continue
                 else:
                     searched_item_lst = result[0]
                     for item_info in searched_item_lst:
-                        if item_info["distance"] >= 0.85:
-                            choosed_item_lst.append(item_info["item_name"])
-                        elif item_info["distance"] > 0.6 and item_info["distance"] < 0.85:
-                            optional_item_lst.append(item_info["item_name"])
+                        # 混合检索返回的结果中，商品名称位于 entity 字典中，需先通过 entity 获取
+                        item_name_val = item_info.get("entity", {}).get("item_name")
+                        if not item_name_val:
+                            continue
+
+                        distance = item_info.get("distance", 0.0)  # 这里的distance实际是cos余弦值[-1,1]
+                        if distance >= 0.85:
+                            choosed_item_lst.append(item_name_val)
+                        elif 0.6 < distance < 0.85:
+                            optional_item_lst.append(item_name_val)
 
             # ===根据对齐情况, 决定如何更新历史对话===
             logger.info(f"choosed_item_lst: {choosed_item_lst}, optional_item_lst: {optional_item_lst}")
-            answer = ""
-            final_item_lst = []
             if choosed_item_lst:
                 final_item_lst = choosed_item_lst
             elif optional_item_lst:
-                tmp = "\t".join([item["item_name"] for item in optional_item_lst])
+                # 修复 optional_item_lst 元素为字符串时的拼接与格式错误
+                tmp = "\t".join(optional_item_lst)
                 answer = f"您想咨询的是以下哪一个? \n: {tmp} "
             else:
                 answer = "数据库中未找到相关内容, 请重新输入"
 
-            # 识别主体置信度较高, 可以回写历史对话记录, 不会新增记录
-            if final_item_lst:
-                update_item_name_and_query(session_id, rewritten_query, final_item_lst)
-                logger.info(f"回写主体信息: rewritten_query: {rewritten_query}, item_names: {final_item_lst}")
-
-            # 识别主体置信度一般/较低, 助手进行回复, 回复内容新增进对话记录
-            else:
+            # 如果需要助手做出确认/警告回复，将回复内容新增到对话历史中，并更新 message_id
+            if answer:
                 data_dict = {
                     "session_id": session_id,
                     "role": "assistant",
@@ -183,7 +186,17 @@ class NodeItemNameConfirm(NodeBase):
                 message_id = add_or_update_data(data_dict)
                 logger.info(f"助手回复写入mongodb,message_id: {message_id}")
 
-        return {"message_id": message_id, "item_names": final_item_lst}
+            # 无论置信度高低（只要提取了意图），都对最近的历史记录回写 rewritten_query 与已对齐的商品名称列表
+            # 这样保证多轮对话上下文的一致性
+            update_item_name_and_query(session_id, rewritten_query, final_item_lst)
+            logger.info(f"回写主体信息: rewritten_query: {rewritten_query}, item_names: {final_item_lst}")
+
+        return {
+            "message_id": message_id,
+            "original_query": original_query,
+            "rewritten_query": rewritten_query,
+            "item_names": final_item_lst,
+        }
 
 
 if __name__ == "__main__":
