@@ -48,25 +48,27 @@ def create_reqs(
         list: 混合检索请求
     """
     if dense_params is None:
-        dense_params = {"metric_type": "COSINE"}
+        dense_params = {
+            "metric_type": "COSINE"
+        }  # 检索用的度量方式需要和milvus集合建立时的向量类型一致,否则报错,这里默认取余弦相似度
     if sparse_params is None:
         sparse_params = {"metric_type": "IP"}
     dense_ann_req = AnnSearchRequest(
-        data=dense_data, anns_field=dense_ann_field, param=dense_params, limit=limit, expr=expr
+        data=[dense_data], anns_field=dense_ann_field, param=dense_params, limit=limit, expr=expr
     )
     sparse_ann_req = AnnSearchRequest(
-        data=sparse_data, anns_field=sparse_ann_field, param=sparse_params, limit=limit, expr=expr
+        data=[sparse_data], anns_field=sparse_ann_field, param=sparse_params, limit=limit, expr=expr
     )
     return [dense_ann_req, sparse_ann_req]
 
 
 # 混合检索搜索
-def hybrid_search(
+def weighted_hybrid_search(
     collection_name,
     reqs,
     ranker=[0.5, 0.5],
     limit=10,
-    output_fields=None,
+    output_fields: list = None,
 ) -> list:
     """混合检索搜索, 采用分数归一化并加权方式进行融合排序
 

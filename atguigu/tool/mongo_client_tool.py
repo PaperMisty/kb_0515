@@ -87,18 +87,21 @@ def clear_history(session_id):
 
 
 # 更新指定会话的特定字段
-def update_item_name_and_query(session_id, rewritten_query: str, item_names: list[str]):
-    """更新指定会话的特定字段, 用于意图识别后的回写
+def update_item_name_and_query(session_id, rewritten_query: str, item_names: list[str], limit=10):
+    """更新指定会话的特定字段, 用于意图识别后的回写, 默认回写最新10条
 
     Args:
         session_id (str): 会话id
         rewritten_query (str): 改写后的查询
         item_names (list[str]): 识别的物料名称列表
+        limit (int, optional): 默认回写最新10条. Defaults to 10.
     """
     collection = get_collection()
-    # 如果rewritten_query或者item_names为None, 才进行更新
+    # 按时间戳排序,取最新limit条
+    id_lst = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
+
     collection.update_many(
-        {"session_id": session_id, "$or": [{"rewritten_query": None}, {"item_names": None}]},
+        {"session_id": session_id, "_id": {"$in": [item["_id"] for item in id_lst]}},
         {"$set": {"rewritten_query": rewritten_query, "item_names": item_names}},
     )
     logger.info(f"Session {session_id} rewritten_query and item_names updated.")

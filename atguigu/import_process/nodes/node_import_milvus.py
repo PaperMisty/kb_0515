@@ -1,3 +1,4 @@
+from pymilvus import CollectionSchema
 from pymilvus import DataType
 from atguigu.config.config import MilvusConfig
 from atguigu.tool.milvus_client_tool import get_milvus_client
