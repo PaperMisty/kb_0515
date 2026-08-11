@@ -120,6 +120,7 @@ class NodeDocumentSplit(NodeBase):
             chunk_size=MAX_LENGTH,
             chunk_overlap=CHUNK_OVERLAP,
         )
+        # TODO 去除段落标题应该在最前面进行
         if len(section_content) < 300 or "<table" in section_content:
             chunk_dict_list.append(
                 {

@@ -1,4 +1,5 @@
 # atguigu/import_process/nodes/node_item_name_recognition.py
+from atguigu.config.config import PromptConfig
 from pymilvus import MilvusClient
 from atguigu.config.config import MilvusConfig
 from atguigu.tool.bgem3_client_tool import get_bgem3_embedding
@@ -69,7 +70,9 @@ class NodeItemNameRecognition(NodeBase):
         msg = [
             {
                 "role": "user",
-                "content": f"要求： 1. 返回内容为字符串形式，最好是带品牌、型号和名称的完整商品名称。比如：苏伯尓5000W大功率电磁炉； 2. 返回结果应该只包含商品名称，不要添加任何解释或其他内容； 3. 如果无法识别商品名称,请返回空字符串。\n 以下是内容：{content_example}",
+                "content": PromptConfig.ITEM_NAME_USER_PROMPT_TEMPLATE.format(
+                    item_name=item_name, context=content_example
+                ),
             }
         ]
         res = llm.invoke(input=msg)
@@ -78,8 +81,8 @@ class NodeItemNameRecognition(NodeBase):
 
         file_title = chunks[0]["file_title"]
         if not item_name:
-            logger.error("主体识别失败，必须传入主体名称")
-            raise ValueError("主体识别失败，必须传入主体名称")
+            logger.debug("主体识别失败，默认采用文件名作为主体名称")
+            item_name = file_title  # 主体item_name,是作为file_title可能无意义的优化版本
         return item_name, file_title
 
     def get_milvus_collection(self, file_title: str) -> tuple[MilvusClient, str]:
