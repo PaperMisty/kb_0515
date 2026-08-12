@@ -111,7 +111,7 @@ class NodeMDImg(NodeBase):
             )  # 如果用re.search 只能找到第一次出现的位置,如果后面二次引用,上下文就不对了
 
             if not context_match:
-                logger.warning("image文件夹内的图片未被md引用")
+                logger.warning(f"image文件夹内的图片{img_name}未被md引用")
                 continue
 
             # 遍历所有的匹配项

@@ -34,8 +34,13 @@ class NodeItemNameRecognition(NodeBase):
         md_path_obj = Path(state.get("md_path", ""))
         md_path_obj = validate_path(md_path_obj, "error")
 
+        file_title = chunks[0]["file_title"]
+        if not file_title:
+            logger.error("文件标题为空")
+            raise ValueError("文件标题为空")
+
         # 1. 通过llm总结获取主体名称和文件标题
-        item_name, file_title = self.get_item_name(chunks)
+        item_name = self.get_item_name(file_title, chunks)
         # 2. 获取milvus连接和表
         client, collection = self.get_milvus_collection(file_title)
         # 3. 向量化主体名称并插入milvus表
@@ -44,7 +49,7 @@ class NodeItemNameRecognition(NodeBase):
         chunks = self.write_chunk_json(chunks, item_name, md_path_obj)
         return {"chunk_dict_list": chunks}
 
-    def get_item_name(self, chunks: list[dict]) -> tuple[str, str]:
+    def get_item_name(self, file_title, chunks: list[dict]) -> tuple[str, str]:
         """获取主体名称和文件标题
 
         Args:
@@ -71,7 +76,7 @@ class NodeItemNameRecognition(NodeBase):
             {
                 "role": "user",
                 "content": PromptConfig.ITEM_NAME_USER_PROMPT_TEMPLATE.format(
-                    item_name=item_name, context=content_example
+                    file_title=file_title, context=content_example
                 ),
             }
         ]
@@ -79,11 +84,10 @@ class NodeItemNameRecognition(NodeBase):
         item_name = res.content.strip().replace(" ", "")
         logger.info(f"主体识别结果: {item_name}")
 
-        file_title = chunks[0]["file_title"]
         if not item_name:
             logger.debug("主体识别失败，默认采用文件名作为主体名称")
             item_name = file_title  # 主体item_name,是作为file_title可能无意义的优化版本
-        return item_name, file_title
+        return item_name
 
     def get_milvus_collection(self, file_title: str) -> tuple[MilvusClient, str]:
         """获取milvus连接和表

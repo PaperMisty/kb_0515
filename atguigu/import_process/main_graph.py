@@ -76,7 +76,7 @@ class MyCustomRunner(GraphRunner):
 if __name__ == "__main__":
 
     init_state = {
-        "local_file_path": str(RAW_DIR / "hak180产品安全手册.pdf"),
+        "local_file_path": str(RAW_DIR / "万用表RS-12的使用.pdf"),
         "local_dir": str(OUTPUT_DIR),
     }
     res = GraphRunner.create_and_run(init_state)
