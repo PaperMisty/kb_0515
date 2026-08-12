@@ -30,19 +30,30 @@ class NodeRrf(NodeBase):
             raise ValueError(f"没有召回结果: {embedding_chunks=},{hyde_embedding_chunks=}")
 
         RRF_SMOOTH = 60
-        rrf_chunks = []
-        id_lst = []
+        rrf_dict = {}  # 用 dict 代替列表，实现 O(1) 复杂度的去重与定位
         rrf_weight = [(embedding_chunks, 1), (hyde_embedding_chunks, 1)]
+
         for embedding, weight in rrf_weight:
             for rank, chunk in enumerate(embedding, 1):
-                chunk["score_rrf"] = weight / (rank + RRF_SMOOTH)
-                if chunk["id"] not in id_lst:
-                    rrf_chunks.append(chunk)
-                    id_lst.append(chunk["id"])
+                chunk_id = chunk.get("id")
+                if chunk_id is None:
+                    # 容错处理：若 chunk 缺失 id，记录警告或跳过，防止程序崩溃
+                    logger.warning(f"Chunk 缺少 'id' 字段，跳过该项: {chunk}")
+                    continue
+
+                score_rrf = weight / (rank + RRF_SMOOTH)
+
+                if chunk_id not in rrf_dict:
+                    # 通过 copy() 创建新字典，避免污染原始数据
+                    new_chunk = chunk.copy()
+                    new_chunk["score_rrf"] = score_rrf
+                    rrf_dict[chunk_id] = new_chunk
                 else:
-                    rrf_chunks[id_lst.index(chunk["id"])]["score_rrf"] += chunk["score_rrf"]
-            # 按得分排序
-        rrf_chunks = sorted(rrf_chunks, key=lambda x: x["score_rrf"], reverse=True)
+                    rrf_dict[chunk_id]["score_rrf"] += score_rrf
+
+        # 按得分排序，并转回列表结构
+        rrf_chunks = sorted(rrf_dict.values(), key=lambda x: x["score_rrf"], reverse=True)
+
         return {"rrf_chunks": rrf_chunks}
 
 
