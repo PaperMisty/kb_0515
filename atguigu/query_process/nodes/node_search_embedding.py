@@ -27,17 +27,16 @@ class NodeSearchEmbedding(NodeBase):
         :return: 更新后的状态对象
         """
 
-        # TODO
         logger.info(f"【{self.name}】节点逻辑")
         item_names = state.get("item_names")
         rewritten_query = state.get("rewritten_query")
         if not item_names or not rewritten_query:
             logger.error(f"缺少主体名称或改写后的问题{item_names=},{rewritten_query=}")
             raise ValueError(f"缺少主体名称或改写后的问题{item_names=},{rewritten_query=}")
-        embedding_chunks = self.search_chunks(rewritten_query, item_names)
+        embedding_chunks = self.search_chunks(rewritten_query, item_names, source="local")
         return {"embedding_chunks": embedding_chunks}
 
-    def search_chunks(self, query, item_names):
+    def search_chunks(self, query, item_names, source, limit=10):
         # 将重写问题转换成embedding向量
         vecs = get_bgem3_embedding([query])
         # 标量搜索依然很重要, 不过expr逐渐推荐用filter代替了
@@ -53,7 +52,7 @@ class NodeSearchEmbedding(NodeBase):
         res = weighted_hybrid_search(
             collection_name=collection_name,
             reqs=reqs,
-            limit=10,
+            limit=limit,
             output_fields=["id", "file_title", "section_title", "chunk_content", "item_name"],
         )
         # print(json_format(res))
@@ -61,7 +60,7 @@ class NodeSearchEmbedding(NodeBase):
         # 组装检索出的chunk信息
         embedding_chunks = []
         for search_result in res[0]:
-            embedding_chunks.append({**search_result["entity"], "score": search_result["distance"], "source": "local"})
+            embedding_chunks.append({**search_result["entity"], "score": search_result["distance"], "source": source})
         return embedding_chunks
 
 
