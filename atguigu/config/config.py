@@ -54,6 +54,10 @@ class MongoConfig:
     mongo_db_name = os.getenv("mongo_db_name")
 
 
+class MCPConfig:
+    mcp_dashscope_base_url = os.getenv("MCP_DASHSCOPE_BASE_URL")
+
+
 class PromptConfig:
     # 文件命名主体识别
     ITEM_NAME_USER_PROMPT_TEMPLATE = """
