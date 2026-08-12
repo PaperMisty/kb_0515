@@ -1,3 +1,4 @@
+from pymilvus import RRFRanker
 from pymilvus import WeightedRanker
 from pymilvus import MilvusClient, AnnSearchRequest
 from atguigu.config.config import MilvusConfig
@@ -83,11 +84,11 @@ def weighted_hybrid_search(
         list: 混合检索结果
     """
     ranker = WeightedRanker(*ranker, norm_score=True)
+    # ranker = RRFRanker()  # 采用倒数排名排序
     client = get_milvus_client()
     result = client.hybrid_search(
         collection_name=collection_name, reqs=reqs, ranker=ranker, limit=limit, output_fields=output_fields
     )
-    logger.info(f"混合检索结果: {result}")
     return result
 
 

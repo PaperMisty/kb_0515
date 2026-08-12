@@ -218,7 +218,7 @@ class NodeItemNameConfirm(NodeBase):
         if not item_names:
             logger.warning("未提取到商品名称")
         else:
-            # 1. 向量数据库混合检索物料
+            # 1. 向量数据库混合检索物料 TODO 对每一个识别的主体检索数据库得到的主体进行断崖检测
             matched_results = self.search_item_names_in_milvus(item_names)
             # 2. 对分值进行层级化评估对齐
             final_item_lst, answer = self.align_item_names_by_score(matched_results)
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     data_dict = {
         "session_id": session_id,
         "role": "user",
-        "text": "咨询下烫金机和万用表。",
+        "text": "咨询下烫金机",  # 和万用表。
         "rewritten_query": None,
         "item_names": None,
         "ts": time.time(),
@@ -374,7 +374,7 @@ if __name__ == "__main__":
     data_dict = {
         "session_id": session_id,
         "role": "user",
-        "text": "hak180和RS-12",
+        "text": "hak180",  # 和RS-12
         "rewritten_query": None,
         "item_names": None,
         "ts": time.time(),
