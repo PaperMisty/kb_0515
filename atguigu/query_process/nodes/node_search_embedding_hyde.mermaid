@@ -1,0 +1,46 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "TimesNewRoman"
+    fontSize: "22px"
+    primaryBorderColor: "#0062ffff"
+---
+
+flowchart LR
+    %% 节点样式类定义
+    classDef startEnd fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef processNode fill:#F5F5F5,stroke:#424242,stroke-width:1px,color:#212121;
+    classDef decisionNode fill:#FFF8E1,stroke:#FF8F00,stroke-width:1.5px,color:#E65100;
+    classDef errorNode fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C;
+    classDef subNode fill:#F3E5F5,stroke:#8E24AA,stroke-width:1.5px,color:#4A148C;
+
+    subgraph Main [NodeSearchEmbeddingHyde process 流程]
+        Start(["开始: process state"])
+        Step1("获取 state 中的 item_names 和 rewritten_query")
+        Step2{"检查核心字段是否缺失?"}
+        Err_Raise("抛出 ValueError 异常")
+        Step3("调用对话 LLM (基于 HYDE_PROMPT)")
+        Step4("生成假设性网页/文档答案 hybrid_answer")
+        Step5("实例化 NodeSearchEmbedding 并检索本地向量 chunks")
+        End(["返回 HyDE 召回的 hyde_embedding_chunks"])
+
+        Start --> Step1
+        Step1 --> Step2
+        Step2 -- 是 --> Err_Raise
+        Step2 -- 否 --> Step3
+        Step3 --> Step4
+        Step4 --> Step5
+        Step5 --> End
+    end
+
+    %% 模块交互连线（调用外部模块 NodeSearchEmbedding）
+    Step5 -.-> LocalSearch("NodeSearchEmbedding.search_chunks")
+    LocalSearch -.-> Step5
+    Err_Raise -.-> End
+
+    %% 样式绑定应用
+    class Start,End startEnd;
+    class Step1,Step3,Step4,Step5,LocalSearch processNode;
+    class Step2 decisionNode;
+    class Err_Raise errorNode;

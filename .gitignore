@@ -12,3 +12,6 @@ wheels/
 # Environment variables
 .env
 .vscode
+
+# Agents variables
+.agents

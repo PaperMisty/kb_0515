@@ -1,0 +1,64 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "TimesNewRoman"
+    fontSize: "22px"
+    primaryBorderColor: "#0062ffff"
+---
+
+flowchart LR
+    %% 节点样式类定义
+    classDef startEnd fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef processNode fill:#F5F5F5,stroke:#424242,stroke-width:1px,color:#212121;
+    classDef decisionNode fill:#FFF8E1,stroke:#FF8F00,stroke-width:1.5px,color:#E65100;
+    classDef errorNode fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C;
+    classDef dbNode fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#1B5E20;
+
+    subgraph Main [NodeWebSearchMcp process 流程]
+        Start(["开始: process state"])
+        Step1("获取 state 中的 rewritten_query")
+        Step2{"检查 rewritten_query 是否为空?"}
+        Err_Empty("抛出 ValueError 异常: 处理数据为空")
+        Step3("运行异步网络搜索任务 asyncio.run")
+        Step4{"搜索返回结果是否为空?"}
+        Err_Search("抛出 ValueError 异常: 搜索结果为空")
+        Step5("解析 JSON 并获取核心内容 pages 字段")
+        Step6("构建 web_search_docs 列表 (重映射 title, snippet, url 字段)")
+        End(["返回网页召回的 web_search_docs"])
+
+        Start --> Step1
+        Step1 --> Step2
+        Step2 -- 是 --> Err_Empty
+        Step2 -- 否 --> Step3
+        Step3 --> Step4
+        Step4 -- 是 --> Err_Search
+        Step4 -- 否 --> Step5
+        Step5 --> Step6
+        Step6 --> End
+    end
+
+    subgraph MCP_Search [mcp_run 异步网络搜索逻辑]
+        direction TD
+        RC_Token("获取 API Token 密钥")
+        RC_Conn("建立与 MCPServerStreamableHttp 的异步 HTTP 连接")
+        RC_Call[("调用 MCP 工具: bailian_web_search")]
+        RC_Ret("返回原始搜索结果 result")
+
+        RC_Token --> RC_Conn
+        RC_Conn --> RC_Call
+        RC_Call --> RC_Ret
+    end
+
+    %% 模块交互连线
+    Step3 -.-> RC_Token
+    RC_Ret -.-> Step3
+    Err_Empty -.-> End
+    Err_Search -.-> End
+
+    %% 样式绑定应用
+    class Start,End startEnd;
+    class Step1,Step3,Step5,Step6,RC_Token,RC_Conn,RC_Ret processNode;
+    class Step2,Step4 decisionNode;
+    class Err_Empty,Err_Search errorNode;
+    class RC_Call dbNode;

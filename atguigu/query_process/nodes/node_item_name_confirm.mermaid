@@ -1,0 +1,188 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "TimesNewRoman"
+    fontSize: "22px"
+    primaryBorderColor: "#0062ffff"
+---
+
+
+flowchart LR
+    %% 节点样式类定义
+    classDef startEnd fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef processNode fill:#F5F5F5,stroke:#424242,stroke-width:1px,color:#212121;
+    classDef decisionNode fill:#FFF8E1,stroke:#FF8F00,stroke-width:1.5px,color:#E65100;
+    classDef dbNode fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#1B5E20;
+    classDef errorNode fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C;
+    classDef subNode fill:#F3E5F5,stroke:#8E24AA,stroke-width:1.5px,color:#4A148C;
+
+    subgraph Main [process 主流程入口]
+        
+        Start(["开始: process state"])
+        Step1("1. 获取历史会话上下文<br>get_history_context")
+        Step2("2. 意图提取与重写<br>get_rewritten_and_item_names")
+        Step3("3. 主体向量对齐与确认<br>get_hierarchical_align_item_name")
+        End(["返回更新后的 state"])
+
+        Start --> Step1
+        Step1 --> Step2
+        Step2 --> Step3
+        Step3 --> End
+    end
+
+    subgraph GetContext [get_history_context 逻辑]
+        direction TD
+        GC_Start(["提取 session_id & original_query"])
+        GC_CheckS{"session_id 是否为空?"}
+        GC_CheckQ{"original_query 是否为空?"}
+        GC_ErrS("抛出异常: session_id 为空")
+        GC_ErrQ("抛出异常: 用户问题为空")
+        GC_Write[("最新用户问题写入 MongoDB<br>add_or_update_data")]
+        GC_Read[("查询最近历史对话记录<br>get_recent_history_list")]
+        GC_CheckH{"历史记录是否为空?"}
+        GC_RetEmpty("返回空 context 并记录警告")
+        GC_Format("格式化历史记录为 text 并用换行连接")
+        GC_Ret("返回 context, original_query, message_id, session_id")
+
+        GC_Start --> GC_CheckS
+        GC_CheckS -- 是 --> GC_ErrS
+        GC_CheckS -- 否 --> GC_CheckQ
+        GC_CheckQ -- 是 --> GC_ErrQ
+        GC_CheckQ -- 否 --> GC_Write
+        GC_Write --> GC_Read
+        GC_Read --> GC_CheckH
+        GC_CheckH -- 是 --> GC_RetEmpty
+        GC_CheckH -- 否 --> GC_Format
+        GC_RetEmpty --> GC_Ret
+        GC_Format --> GC_Ret
+    end
+
+    subgraph ExtractNames [get_rewritten_and_item_names 逻辑]
+        direction TD
+        EX_Start("初始化 LLM 并绑定<br>ItemNameExtractResult 结构化输出")
+        EX_Invoke("调用结构化 LLM: structured_llm.invoke")
+        EX_Check{"解析后的 response 是否为空?"}
+        EX_None("rewritten_query = original_query<br>item_names = 空列表")
+        EX_DictPydantic("从 Dict/Pydantic 中提取<br>rewritten_query 与 item_names")
+        EX_Other("反射获取或回退到 original_query/空列表")
+        EX_Defend("防御归一化:<br>1. 空 rewritten_query 重置为 original_query<br>2. 空 item_names 初始化为列表<br>3. 单字符串类型的商品名称转成列表")
+        EX_Ret("返回 rewritten_query, item_names")
+
+        EX_Start --> EX_Invoke
+        EX_Invoke --> EX_Check
+        EX_Check -- 为 None --> EX_None
+        EX_Check -- 是 Dict/Pydantic --> EX_DictPydantic
+        EX_Check -- 其他类型 --> EX_Other
+        EX_None --> EX_Defend
+        EX_DictPydantic --> EX_Defend
+        EX_Other --> EX_Defend
+        EX_Defend --> EX_Ret
+    end
+
+    subgraph AlignMain [get_hierarchical_align_item_name 逻辑]
+
+        AM_Start("初始化 final_item_lst = 空, answer = 空")
+        AM_CheckQ{"rewritten_query 是否为空?"}
+        AM_SetQ("rewritten_query = original_query")
+        AM_CheckNames{"item_names 是否为空?"}
+        AM_Warn("记录警告: 未提取到商品名称")
+        AM_Search("调用 search_item_names_in_milvus 检索")
+        AM_Score("调用 align_item_names_by_score 进行分值评估对齐")
+        AM_Update("调用 handle_session_history_update 更新会话")
+        AM_Ret("返回 rewritten_query, answer, final_item_lst, message_id")
+
+        AM_Start --> AM_CheckQ
+        AM_CheckQ -- 是 --> AM_SetQ
+        AM_CheckQ -- 否 --> AM_CheckNames
+        AM_SetQ --> AM_CheckNames
+        AM_CheckNames -- 是 --> AM_Warn
+        AM_CheckNames -- 否 --> AM_Search
+        AM_Warn --> AM_Ret
+        AM_Search --> AM_Score
+        AM_Score --> AM_Update
+        AM_Update --> AM_Ret
+    end
+
+    subgraph SearchMilvus [search_item_names_in_milvus 逻辑]
+        direction TD
+        SM_Clean("过滤并去除 item_names 中所有空白字符")
+        SM_Embed("获取 BGEM3 混合向量 (dense + sparse)")
+        SM_Loop("遍历每个商品名")
+        SM_Reqs("创建 Milvus 双路向量请求: limit=10")
+        SM_Hybrid[("Milvus 混合检索: weighted_hybrid_search<br>权重 0.8:0.2, 输出 item_name")]
+        SM_Add("合并检索到的候选物料")
+        SM_Ret("返回 matched_results")
+
+        SM_Clean --> SM_Embed
+        SM_Embed --> SM_Loop
+        SM_Loop --> SM_Reqs
+        SM_Reqs --> SM_Hybrid
+        SM_Hybrid --> SM_Add
+        SM_Add --> SM_Loop
+        SM_Loop -- 遍历结束 --> SM_Ret
+    end
+
+    subgraph AlignScore [align_item_names_by_score 逻辑]
+        direction TD
+        AS_Start("遍历 matched_results 中的候选物料")
+        AS_CheckScore{"检索相似度 score / distance"}
+        AS_High("高置信度 score >= 0.85:<br>加入 choosed_item_lst")
+        AS_Mid("中置信度 0.6 &lt; score &lt; 0.85:<br>加入 optional_item_lst")
+        AS_Low("低置信度 score <= 0.6:<br>跳过并忽略")
+        AS_CheckLst{"分类列表结果评估"}
+        AS_UseHigh("final_item_lst = choosed_item_lst<br>answer = 空")
+        AS_UseMid("final_item_lst = 空<br>answer = 拼装交互澄清话术")
+        AS_UseNone("final_item_lst = 空<br>answer = 数据库未找到相关内容话术")
+        AS_Ret("返回 final_item_lst, answer")
+
+        AS_Start --> AS_CheckScore
+        AS_CheckScore -- ">= 0.85" --> AS_High
+        AS_CheckScore -- "0.6 ~ 0.85" --> AS_Mid
+        AS_CheckScore -- "<= 0.6" --> AS_Low
+        AS_High --> AS_CheckLst
+        AS_Mid --> AS_CheckLst
+        AS_Low --> AS_CheckLst
+        AS_CheckLst -- 存在高置信度物料 --> AS_UseHigh
+        AS_CheckLst -- 仅存在中置信度物料 --> AS_UseMid
+        AS_CheckLst -- 均不存在 --> AS_UseNone
+        AS_UseHigh --> AS_Ret
+        AS_UseMid --> AS_Ret
+        AS_UseNone --> AS_Ret
+    end
+
+    subgraph UpdateHistory [handle_session_history_update 逻辑]
+        UH_Check{"answer 是否为空?"}
+        UH_Write[("新增助手回复到 MongoDB<br>add_or_update_data")]
+        UH_Sync[("回写最近历史记录的主体信息<br>update_item_name_and_query")]
+        UH_Ret["返回最新 message_id"]
+
+        UH_Check -- 否 --> UH_Write
+        UH_Check -- 是 --> UH_Sync
+        UH_Write --> UH_Sync
+        UH_Sync --> UH_Ret
+    end
+
+    %% 模块之间的连接关系线
+    Step1 -.-> GC_Start
+    GC_Ret -.-> Step2
+    Step2 -.-> EX_Start
+    EX_Ret -.-> Step3
+    Step3 -.-> AM_Start
+    AM_Search -.-> SM_Clean
+    SM_Ret -.-> AM_Score
+    AM_Score -.-> AS_Start
+    AS_Ret -.-> AM_Update
+    AM_Update -.-> UH_Check
+    UH_Ret -.-> AM_Ret
+    AM_Ret -.-> End
+
+
+
+    %% 样式绑定应用
+    class Start,End startEnd;
+    class Step1,Step2,Step3,AM_Search,AM_Score,AM_Update subNode;
+    class GC_Start,GC_RetEmpty,GC_Format,GC_Ret,EX_Start,EX_Invoke,EX_None,EX_DictPydantic,EX_Other,EX_Defend,EX_Ret,AM_Start,AM_SetQ,AM_Ret,SM_Clean,SM_Embed,SM_Loop,SM_Reqs,SM_Add,SM_Ret,AS_Start,AS_High,AS_Mid,AS_Low,AS_UseHigh,AS_UseMid,AS_UseNone,AS_Ret,UH_Ret processNode;
+    class GC_CheckS,GC_CheckQ,GC_CheckH,EX_Check,AM_CheckQ,AM_CheckNames,AS_CheckScore,AS_CheckLst,UH_Check decisionNode;
+    class GC_Write,GC_Read,SM_Hybrid,UH_Write,UH_Sync dbNode;
+    class GC_ErrS,GC_ErrQ errorNode;

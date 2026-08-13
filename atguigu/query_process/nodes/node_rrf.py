@@ -9,7 +9,7 @@ from atguigu.tool.logger import logger
 class NodeRrf(NodeBase):
     """
     节点功能：Reciprocal Rank Fusion
-    将多路召回的结果（向量、HyDE、Web）进行加权融合排序。
+    将多路召回的结果（Query、HyDE）进行加权融合排序。
     """
 
     # 覆盖基类的 name 属性，标识节点名称

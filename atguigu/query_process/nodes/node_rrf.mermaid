@@ -1,0 +1,72 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "TimesNewRoman"
+    fontSize: "22px"
+    primaryBorderColor: "#0062ffff"
+---
+
+flowchart LR
+    %% 节点样式类定义
+    classDef startEnd fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef processNode fill:#F5F5F5,stroke:#424242,stroke-width:1px,color:#212121;
+    classDef decisionNode fill:#FFF8E1,stroke:#FF8F00,stroke-width:1.5px,color:#E65100;
+    classDef errorNode fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C;
+
+    subgraph Main [NodeRrf process 流程]
+        Start(["开始: process state"])
+        Step1("获取 state 中的召回列表")
+        Step2{"检查列表是否为空?"}
+        Err_Raise("抛出 ValueError 异常")
+        Step3("调用 RRF 融合与排序逻辑")
+        End(["返回合并排序后的 rrf_chunks"])
+
+        Start --> Step1
+        Step1 --> Step2
+        Step2 -- 是 --> Err_Raise
+        Step2 -- 否 --> Step3
+        Step3 --> End
+    end
+
+    subgraph RRF_Core [RRF 融合与排序逻辑]
+        RC_Init("初始化 RRF_SMOOTH = 60<br>rrf_dict = {} 空字典")
+        RC_LoopW("1. 遍历召回源 (Query召回 / HyDE召回)")
+        RC_LoopC("2. 遍历该源中各个排序块 (rank, chunk)")
+        RC_CheckID{"chunk 是否缺失 'id'?"}
+        RC_Skip("记录警告并跳过该 chunk")
+        RC_Calc("计算当前 RRF 得分:<br>score = weight / (rank + 60)")
+        RC_CheckDict{"chunk_id 是否已在 rrf_dict 中?"}
+        RC_AddDict("深拷贝 chunk 并初始化 score_rrf")
+        RC_UpdateDict("累加 score_rrf 到已有项")
+        RC_Sort("按 score_rrf 降序排序 rrf_dict 所有值")
+        RC_Ret("返回已排序的 rrf_chunks 列表")
+
+        RC_Init --> RC_LoopW
+        RC_LoopW --> RC_LoopC
+        RC_LoopC --> RC_CheckID
+        RC_CheckID -- 是 --> RC_Skip
+        RC_CheckID -- 否 --> RC_Calc
+        RC_Skip --> RC_LoopC
+        RC_Calc --> RC_CheckDict
+        RC_CheckDict -- 否 --> RC_AddDict
+        RC_CheckDict -- 是 --> RC_UpdateDict
+        RC_AddDict --> RC_LoopC
+        RC_UpdateDict --> RC_LoopC
+        RC_LoopC -- 遍历结束 --> RC_LoopW
+        RC_LoopW -- 遍历结束 --> RC_Sort
+        RC_Sort --> RC_Ret
+    end
+
+    %% 模块交互连线
+    Step3 -.-> RC_Init
+    RC_Ret -.-> End
+    Err_Raise -.-> End
+
+
+    
+    %% 样式绑定应用
+    class Start,End startEnd;
+    class Step1,Step3,RC_Init,RC_LoopW,RC_LoopC,RC_Skip,RC_Calc,RC_AddDict,RC_UpdateDict,RC_Sort,RC_Ret processNode;
+    class Step2,RC_CheckID,RC_CheckDict decisionNode;
+    class Err_Raise errorNode;

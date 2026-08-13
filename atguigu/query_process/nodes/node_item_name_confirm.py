@@ -103,7 +103,7 @@ class NodeItemNameConfirm(NodeBase):
         logger.info(f"最新对话写入mongodb,message_id: {message_id}")
 
         # 取最近历史对话记录
-        recent_history_list = get_recent_history_list(session_id, limit=3)
+        recent_history_list = get_recent_history_list(session_id)
         if not recent_history_list:
             logger.warning("最近历史对话记录为空")
             return "", original_query, message_id, session_id
@@ -133,7 +133,7 @@ class NodeItemNameConfirm(NodeBase):
         # 绑定结构化输出 schema
         structured_llm = llm.with_structured_output(schema=ItemNameExtractResult, include_raw=True)
 
-        # 让LLM提取意图内容
+        # 让LLM总结rewritten_query字符 和 item_names列表
         msg = [
             {"role": "system", "content": PromptConfig.ITEM_NAME_EXTRACT_SYSTEM_PROMPT},
             {

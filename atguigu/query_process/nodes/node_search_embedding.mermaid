@@ -1,0 +1,62 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "TimesNewRoman"
+    fontSize: "22px"
+    primaryBorderColor: "#0062ffff"
+---
+
+flowchart LR
+    %% 节点样式类定义
+    classDef startEnd fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef processNode fill:#F5F5F5,stroke:#424242,stroke-width:1px,color:#212121;
+    classDef decisionNode fill:#FFF8E1,stroke:#FF8F00,stroke-width:1.5px,color:#E65100;
+    classDef errorNode fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#B71C1C;
+    classDef dbNode fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#1B5E20;
+
+    subgraph Main [NodeSearchEmbedding process 流程]
+        Start(["开始: process state"])
+        Step1("获取 state 中的 item_names 和 rewritten_query")
+        Step2{"检查核心字段是否缺失?"}
+        Err_Raise("抛出 ValueError 异常")
+        Step3("调用 search_chunks 执行数据库检索")
+        End(["返回本地向量召回的 embedding_chunks"])
+
+        Start --> Step1
+        Step1 --> Step2
+        Step2 -- 是 --> Err_Raise
+        Step2 -- 否 --> Step3
+        Step3 --> End
+    end
+
+    subgraph DB_Query [search_chunks 本地向量检索核心逻辑]
+        direction TD
+        RC_Embed("调用 get_bgem3_embedding 将问题转为混合向量")
+        RC_Filter("构建 Milvus 标量过滤表达式 expr: item_name in ...")
+        RC_Reqs("调用 create_reqs 创建 Milvus 双路检索请求")
+        RC_Search[("调用 weighted_hybrid_search 执行 Milvus 混合检索")]
+        RC_Loop("遍历检索结果 res[0]")
+        RC_Pack("组装 chunk 实体信息，重映射 distance 为 score 并加入列表")
+        RC_Ret("返回 embedding_chunks 列表")
+
+        RC_Embed --> RC_Filter
+        RC_Filter --> RC_Reqs
+        RC_Reqs --> RC_Search
+        RC_Search --> RC_Loop
+        RC_Loop --> RC_Pack
+        RC_Pack --> RC_Loop
+        RC_Loop -- 遍历完毕 --> RC_Ret
+    end
+
+    %% 模块交互连线
+    Step3 -.-> RC_Embed
+    RC_Ret -.-> Step3
+    Err_Raise -.-> End
+
+    %% 样式绑定应用
+    class Start,End startEnd;
+    class Step1,Step3,RC_Embed,RC_Filter,RC_Reqs,RC_Loop,RC_Pack,RC_Ret processNode;
+    class Step2 decisionNode;
+    class Err_Raise errorNode;
+    class RC_Search dbNode;
