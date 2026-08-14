@@ -21,7 +21,49 @@ class NodeRerank(NodeBase):
         :param state: 工作流状态对象
         :return: 更新后的状态对象
         """
+        # 重排序
+        rerank_merge_docs = self.get_rerank_docs(state)
+        # 断崖检测
+        reranked_docs = self.cliff_detection(rerank_merge_docs)
+        logger.info(json_format(reranked_docs))
+        return {"reranked_docs": reranked_docs}
 
+    def cliff_detection(self, rerank_merge_docs: list[dict]) -> list[dict]:
+        """固定参数的断崖检测, 绝对差值or相对差值的断崖
+
+        Args:
+            doc_lst (list[dict]): _description_
+
+        Returns:
+            list[dict]: _description_
+        """
+        ABS_GAP_THRES = 0.25
+        RATIO_GAP_THRES = 0.1
+        MIN_LEN = 3
+        MAX_LEN = 10
+        ACTUAL_MAX_LEN = min(MAX_LEN, len(rerank_merge_docs))
+        ACTUAL_MIN_LEN = min(MIN_LEN, len(rerank_merge_docs))
+        for i in range(ACTUAL_MIN_LEN - 1, ACTUAL_MAX_LEN - 1):
+            current_score = rerank_merge_docs[i]["score"]
+            next_score = rerank_merge_docs[i + 1]["score"]
+            abs_gap = current_score - next_score
+            ratio_gap = abs_gap / current_score
+            if abs_gap > ABS_GAP_THRES or ratio_gap > RATIO_GAP_THRES:
+                return rerank_merge_docs[: i + 1]
+        return rerank_merge_docs[:ACTUAL_MAX_LEN]
+
+    def get_rerank_docs(self, state: QueryGraphState) -> list[dict]:
+        """把Web和Local的查询进行精细重排序
+
+        Args:
+            state (QueryGraphState): _description_
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            list[dict]: _description_
+        """
         logger.info(f"【{self.name}】节点逻辑")
         rewritten_query = state.get("rewritten_query")
         rrf_chunks = state.get("rrf_chunks")
@@ -49,10 +91,8 @@ class NodeRerank(NodeBase):
         for item in rerank_lst:
             merge_docs[item["index"]]["score"] = item["score"]
         # 按分数排名
-        merge_docs = sorted(merge_docs, key=lambda x: x["score"], reverse=True)
-        logger.info(json_format(merge_docs))
-
-        return state
+        rerank_merge_docs = sorted(merge_docs, key=lambda x: x["score"], reverse=True)
+        return rerank_merge_docs
 
 
 if __name__ == "__main__":
