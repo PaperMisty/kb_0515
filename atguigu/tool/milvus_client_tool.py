@@ -86,6 +86,8 @@ def weighted_hybrid_search(
     ranker = WeightedRanker(*ranker, norm_score=True)
     # ranker = RRFRanker()  # 采用倒数排名排序
     client = get_milvus_client()
+    # 显式加载集合到内存中，防止检索结果因未载入而为空
+    client.load_collection(collection_name)
     result = client.hybrid_search(
         collection_name=collection_name, reqs=reqs, ranker=ranker, limit=limit, output_fields=output_fields
     )

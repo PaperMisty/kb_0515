@@ -218,7 +218,7 @@ class NodeItemNameConfirm(NodeBase):
         if not item_names:
             logger.warning("未提取到商品名称")
         else:
-            # 1. 向量数据库混合检索物料 TODO 对每一个识别的主体检索数据库得到的主体进行断崖检测
+            # 1. 向量数据库混合检索物料
             matched_results = self.search_item_names_in_milvus(item_names)
             # 2. 对分值进行层级化评估对齐
             final_item_lst, answer = self.align_item_names_by_score(matched_results)

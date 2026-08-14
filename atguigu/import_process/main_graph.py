@@ -82,7 +82,7 @@ class MyCustomRunner(GraphRunner):
 if __name__ == "__main__":
 
     init_state = {
-        "local_file_path": str(RAW_DIR / "万用表RS-12的使用.pdf"),
+        "local_file_path": str(RAW_DIR / "【第二版】DK2509-10前后盘包装方案及捆包成本检讨 250501.pptx"),
         "local_dir": str(OUTPUT_DIR),
     }
     res = GraphRunner.create_and_run(init_state)

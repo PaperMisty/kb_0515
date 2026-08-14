@@ -52,6 +52,7 @@ class NodeSearchEmbedding(NodeBase):
         res = weighted_hybrid_search(
             collection_name=collection_name,
             reqs=reqs,
+            ranker=[0.8, 0.2],
             limit=limit,
             output_fields=["id", "file_title", "section_title", "chunk_content", "item_name"],
         )
@@ -66,6 +67,6 @@ class NodeSearchEmbedding(NodeBase):
 
 if __name__ == "__main__":
     node = NodeSearchEmbedding()
-    init_state = {"item_names": ["兄弟HAK180烫金机"], "rewritten_query": "兄弟HAK180烫金机咋用？"}
+    init_state = {"item_names": ["DK2509-10前后制动盘"], "rewritten_query": "DK2509-10前盘成本多少"}
     res = node(init_state)
     print(json_format(res))
