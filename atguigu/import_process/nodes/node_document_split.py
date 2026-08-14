@@ -104,7 +104,9 @@ class NodeDocumentSplit(NodeBase):
                 current_idx = idx
         return chunk_dict_list
 
-    def split_chunks(self, file_title: str, section_title: str, section_content: str, is_ppt: bool = False) -> list[dict]:
+    def split_chunks(
+        self, file_title: str, section_title: str, section_content: str, is_ppt: bool = False
+    ) -> list[dict]:
         """递归切割器切分段落,给每个Chunk分配段落标题,
         对于含有HTML的和小于MAX_LENGTH的暂不切分
 
@@ -134,11 +136,12 @@ class NodeDocumentSplit(NodeBase):
                 image_md = image_match.group(0)
 
         # TODO 去除段落标题应该在最前面进行
-        if len(section_content) < 300 or "<table" in section_content:
+        is_table = ("<table" in section_content) or (re.search(r"\|\s*[-:]+\s*\|", section_content) is not None)
+        if len(section_content) < 300 or is_table:
             chunk_dict_list.append(
                 {
                     "file_title": file_title,
-                    "section_title": section_title,
+                    "section_title": section_title,  # section_title作用在于父子文档切分时候的定位, chunk进行向量化不附件section_title, 而是附加item_name
                     "chunk_content": section_content,
                     "part": 0,
                 }

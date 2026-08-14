@@ -52,7 +52,7 @@ class GraphRunner:
         self.builder.add_edge(START, NodeEntry.name)
         self.builder.add_conditional_edges(NodeEntry.name, self.after_node_entry)
         self.builder.add_edge(NodePDFToMD.name, NodeMDImg.name)
-        self.builder.add_edge(NodePPTToMD.name, NodeDocumentSplit.name)
+        self.builder.add_edge(NodePPTToMD.name, NodeMDImg.name)
         self.builder.add_edge(NodeMDImg.name, NodeDocumentSplit.name)
         self.builder.add_edge(NodeDocumentSplit.name, NodeItemNameRecognition.name)
         self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)
