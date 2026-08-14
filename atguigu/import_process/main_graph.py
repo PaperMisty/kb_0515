@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph
 from atguigu.import_process.nodes.node_entry import NodeEntry
 from atguigu.import_process.nodes.node_pdf_to_md import NodePDFToMD
 from atguigu.import_process.nodes.node_md_img import NodeMDImg
+from atguigu.import_process.nodes.node_ppt_to_md import NodePPTToMD
 from atguigu.import_process.nodes.node_document_split import NodeDocumentSplit
 from atguigu.import_process.nodes.node_item_name_recognize import (
     NodeItemNameRecognition,
@@ -27,6 +28,7 @@ class GraphRunner:
         self.builder.add_node(NodeEntry.name, NodeEntry())
         self.builder.add_node(NodeMDImg.name, NodeMDImg())
         self.builder.add_node(NodePDFToMD.name, NodePDFToMD())
+        self.builder.add_node(NodePPTToMD.name, NodePPTToMD())
         self.builder.add_node(NodeDocumentSplit.name, NodeDocumentSplit())
         self.builder.add_node(NodeItemNameRecognition.name, NodeItemNameRecognition())
         self.builder.add_node(NodeBGEEmbedding.name, NodeBGEEmbedding())
@@ -36,17 +38,21 @@ class GraphRunner:
     def after_node_entry(self, state: ImportGraphState):
         is_md = state.get("is_md_read_enabled", False)
         is_pdf = state.get("is_pdf_read_enabled", False)
+        is_ppt = state.get("is_ppt_read_enabled", False)
         if is_md:
             return NodeMDImg.name
         elif is_pdf:
             return NodePDFToMD.name
+        elif is_ppt:
+            return NodePPTToMD.name
         else:
-            raise ValueError("is_md_read_enabled和is_pdf_read_enabled不能同时为False")
+            raise ValueError("is_md_read_enabled、is_pdf_read_enabled和is_ppt_read_enabled不能同时为False")
 
     def add_edges(self):
         self.builder.add_edge(START, NodeEntry.name)
         self.builder.add_conditional_edges(NodeEntry.name, self.after_node_entry)
         self.builder.add_edge(NodePDFToMD.name, NodeMDImg.name)
+        self.builder.add_edge(NodePPTToMD.name, NodeDocumentSplit.name)
         self.builder.add_edge(NodeMDImg.name, NodeDocumentSplit.name)
         self.builder.add_edge(NodeDocumentSplit.name, NodeItemNameRecognition.name)
         self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)

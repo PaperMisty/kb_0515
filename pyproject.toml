@@ -27,6 +27,7 @@ dependencies = [
     "modelscope>=1.39.1",
     "mcp>=1.28,<2.0.0",
     "openai-agents>=0.20.0",
+    "dashscope>=1.26.7",
 ]
 
 [tool.black]

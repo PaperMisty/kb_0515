@@ -58,6 +58,10 @@ class MCPConfig:
     mcp_dashscope_base_url = os.getenv("MCP_DASHSCOPE_BASE_URL")
 
 
+class ReRankerConfig:
+    reranker_base_url = os.getenv("RERANK_BASE_URL")
+
+
 class PromptConfig:
     # 文件命名主体识别
     ITEM_NAME_USER_PROMPT_TEMPLATE = """

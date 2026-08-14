@@ -1,35 +1,12 @@
-# chunk_lst = [
-#     {
-#         "file_title": "hak180产品安全手册",
-#         "title": "## 设备",
-#         "content": "## 设备\n\n•\t将本设备放置在平整、水平且稳定的表面上（如桌面），避免震动和冲击。\n\n•\t将本设备放置在通风良好的环境中。\n\n•\t为了防止人员受伤，请谨慎操作，避免将手指放置在图中所示的区域中。\n\n![本设备需接地使用，放置于平稳通风处，避免灰尘堆积和手指误入危险区域，搬运时用双手抓稳。](http://192.168.100.88:9000/knowledge-base/upload-images/c61a7f4e923881679f747508ae309c39dc221685344b068009256b1b3a40cc00.jpg)",
-#         "item_name": "BrotherHAK180烫金机",
-#         "id": 468273558621788526,
-#         "score": 0.8287613987922668,
-#         "source": "local",
-#     },
-#     {
-#         "file_title": "hak180产品安全手册",
-#         "title": "## 设备",
-#         "content": "## 设备\n\n![设备使用需注意防火、防触电，避免儿童接触塑料袋，使用后待冷却再开盖，防止烧伤。](http://192.168.100.88:9000/knowledge-base/upload-images/f3349cded08d6686a93d0a81b9a64ec1e50d9a82cbb88541b37027f085813a15.jpg)  \n儎⑟ഴḽ䆜઀ᛞ࠽व䀜᪮儎⑟Ⲻ䇴༽䜞ԬȾ",
-#         "item_name": "BrotherHAK180烫金机",
-#         "id": 468273558621788521,
-#         "score": 0.8251358270645142,
-#         "source": "local",
-#     },
-# ]
-# a = {
-#     "file_title": "hak180产品安全手册",
-#     "title": "## 设备",
-#     "content": "## 设备\n\n•\t将本设备放置在平整、水平且稳定的表面上（如桌面），避免震动和冲击。\n\n•\t将本设备放置在通风良好的环境中。\n\n•\t为了防止人员受伤，请谨慎操作，避免将手指放置在图中所示的区域中。\n\n![本设备需接地使用，放置于平稳通风处，避免灰尘堆积和手指误入危险区域，搬运时用双手抓稳。](http://192.168.100.88:9000/knowledge-base/upload-images/c61a7f4e923881679f747508ae309c39dc221685344b068009256b1b3a40cc00.jpg)",
-#     "item_name": "BrotherHAK180烫金机",
-#     "id": 468273558621788526,
-#     "score": 0.8287613987922668,
-#     "source": "local",
-# }
-# b = a not in chunk_lst
-# print(f"{b=}")
+from atguigu.config.config import LLMConfig
+from langchain.chat_models import init_chat_model
 
-a = {1, 2}
-a.add(3)
-print(a)
+llm = init_chat_model(
+    model=LLMConfig.vlm_model,
+    model_provider="openai",
+    base_url=LLMConfig.base_url,
+    api_key=LLMConfig.api_key,
+    temperature=LLMConfig.temperature,
+)
+
+img_path = "./image.png"

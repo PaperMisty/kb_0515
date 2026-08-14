@@ -33,6 +33,7 @@ class NodeEntry(NodeBase):
                 "md_path": str(local_file_path),
                 "is_md_read_enabled": True,
                 "is_pdf_read_enabled": False,
+                "is_ppt_read_enabled": False,
             }
         elif file_type == ".pdf":
             return {
@@ -40,6 +41,15 @@ class NodeEntry(NodeBase):
                 "pdf_path": str(local_file_path),
                 "is_md_read_enabled": False,
                 "is_pdf_read_enabled": True,
+                "is_ppt_read_enabled": False,
+            }
+        elif file_type in (".ppt", ".pptx"):
+            return {
+                "file_title": file_name,
+                "ppt_path": str(local_file_path),
+                "is_md_read_enabled": False,
+                "is_pdf_read_enabled": False,
+                "is_ppt_read_enabled": True,
             }
         else:
             logger.error("不支持的文件类型")

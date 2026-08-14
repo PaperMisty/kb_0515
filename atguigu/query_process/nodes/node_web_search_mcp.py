@@ -42,9 +42,9 @@ class NodeWebSearchMcp(NodeBase):
         return {
             "web_search_docs": [
                 {
-                    "section_title": item.get("title"),
-                    "chunk_content": item.get("snippet"),
-                    "page_url": item.get("url"),
+                    "title": item.get("title"),
+                    "content": item.get("snippet"),
+                    "url": item.get("url"),
                     "source": "web",
                 }
                 for item in web_search_docs

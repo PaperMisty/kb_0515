@@ -49,7 +49,7 @@ class NodeSearchEmbeddingHyde(NodeBase):
         hybrid_answer = llm.invoke(input=msg).content
         print(f"{hybrid_answer=}")
 
-        hyde_embedding_chunks = NodeSearchEmbedding().search_chunks(hybrid_answer, item_names, source="local")
+        hyde_embedding_chunks = NodeSearchEmbedding().search_chunks(f"问题:{rewritten_query}\n答案:{hybrid_answer}", item_names, source="local")
 
         # return state
         return {"hyde_embedding_chunks": hyde_embedding_chunks}

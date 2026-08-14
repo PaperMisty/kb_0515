@@ -32,15 +32,15 @@ def test_after_node_entry_pdf():
 
 def test_after_node_entry_error():
     """
-    单元测试：验证当 md 和 pdf 均未被启用时，是否如期抛出 ValueError 异常
+    单元测试：验证当 md, pdf 和 ppt 均未被启用时，是否如期抛出 ValueError 异常
     """
     runner = GraphRunner()
-    state = {"is_md_read_enabled": False, "is_pdf_read_enabled": False}
+    state = {"is_md_read_enabled": False, "is_pdf_read_enabled": False, "is_ppt_read_enabled": False}
     # 验证是否会抛出指定错误，并捕获错误信息进行断言
     with pytest.raises(ValueError) as excinfo:
         runner.after_node_entry(state)
 
-    assert "is_md_read_enabled和is_pdf_read_enabled不能同时为False" in str(
+    assert "is_md_read_enabled、is_pdf_read_enabled和is_ppt_read_enabled不能同时为False" in str(
         excinfo.value
     )
 
@@ -56,6 +56,7 @@ def test_nodes_are_registered():
         "node_entry",
         "node_md_img",
         "node_pdf_to_md",
+        "node_ppt_to_md",
         "node_document_split",
         "node_item_name_recognition",
         "node_bge_embedding",
@@ -64,3 +65,13 @@ def test_nodes_are_registered():
 
     for node_name in expected_nodes:
         assert node_name in registered_nodes
+
+
+def test_after_node_entry_ppt():
+    """
+    单元测试：验证当 ppt 读取被启用时，流转路由是否能正确指向 node_ppt_to_md
+    """
+    runner = GraphRunner()
+    state = {"is_md_read_enabled": False, "is_pdf_read_enabled": False, "is_ppt_read_enabled": True}
+    next_node = runner.after_node_entry(state)
+    assert next_node == "node_ppt_to_md"

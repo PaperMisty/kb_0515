@@ -21,8 +21,10 @@ class NodeDocumentSplit(NodeBase):
     def process(self, state: ImportGraphState):
         # 1.获取Markdown文本内容,以换行符切分为列表
         md_content_list, file_title, md_path_obj = self.get_md_content(state)
+        # 获取是否为 PPT 的标记
+        is_ppt = state.get("is_ppt_read_enabled", False)
         # 2.获取Markdown每个章节内容,将每个章节切分为chunks
-        chunk_dict_list = self.split_section(md_content_list, file_title)
+        chunk_dict_list = self.split_section(md_content_list, file_title, is_ppt)
         # 3.保存
         self.save_chunks_json(md_path_obj, chunk_dict_list)
         # 4.返回chunks详细信息
@@ -60,12 +62,13 @@ class NodeDocumentSplit(NodeBase):
         md_content_list = md_content.split("\n")
         return md_content_list, file_title, md_path_obj
 
-    def split_section(self, md_content_list: list[str], file_title: str) -> list[dict]:
+    def split_section(self, md_content_list: list[str], file_title: str, is_ppt: bool = False) -> list[dict]:
         """按 # 字符来切分段落
 
         Args:
             md_content_list (list[str]): Markdown文本列表
             file_title (str): 文件名称
+            is_ppt (bool): 是否是 PPT 幻灯片路径
 
         Returns:
             list[dict]: 切分后的段落信息
@@ -96,21 +99,22 @@ class NodeDocumentSplit(NodeBase):
                 if section_list:
                     # 包装段落信息
                     section_title = section_list[0] if section_content.startswith("#") else "摘要"
-                    _chunk_dict_list = self.split_chunks(file_title, section_title, section_content)
+                    _chunk_dict_list = self.split_chunks(file_title, section_title, section_content, is_ppt)
                     chunk_dict_list.extend(_chunk_dict_list)
                 current_idx = idx
         return chunk_dict_list
 
-    def split_chunks(self, file_title: str, section_title: str, section_content: str) -> list[dict]:
+    def split_chunks(self, file_title: str, section_title: str, section_content: str, is_ppt: bool = False) -> list[dict]:
         """递归切割器切分段落,给每个Chunk分配段落标题,
         对于含有HTML的和小于MAX_LENGTH的暂不切分
 
         Args:
-            section_dict_list (list[dict]): 段落信息
+            section_content (str): 段落信息
             file_title (str): 文件名
+            is_ppt (bool): 是否是 PPT 幻灯片路径
 
         Returns:
-            ImportGraphState: Graph对象
+            list[dict]: 切分后的 chunk 字典列表
         """
         MAX_LENGTH = 300
         CHUNK_OVERLAP = 30
@@ -120,6 +124,15 @@ class NodeDocumentSplit(NodeBase):
             chunk_size=MAX_LENGTH,
             chunk_overlap=CHUNK_OVERLAP,
         )
+
+        # PPT 幻灯片特有逻辑：提取该 Section 中引用的图片 Markdown 标签
+        image_md = ""
+        if is_ppt:
+            # 正则匹配类似于 ![DK123405-1](http://...) 的图片标签
+            image_match = re.search(r"!\[.*?\]\(.*?\)", section_content)
+            if image_match:
+                image_md = image_match.group(0)
+
         # TODO 去除段落标题应该在最前面进行
         if len(section_content) < 300 or "<table" in section_content:
             chunk_dict_list.append(
@@ -134,11 +147,15 @@ class NodeDocumentSplit(NodeBase):
             real_section_content = section_content[len(section_title) :]  # 去除段落标题
             chunk_list = spliter.split_text(real_section_content)
             for idx, chunk in enumerate(chunk_list, 1):
+                chunk_content = section_title + "\n\n" + chunk
+                # PPT 幻灯片特有逻辑：若切出来的子 chunk 内不含图片，则在尾部附加上图片线上 URL
+                if is_ppt and image_md and image_md not in chunk_content:
+                    chunk_content = chunk_content + "\n\n" + image_md
                 chunk_dict_list.append(
                     {
                         "file_title": file_title,
                         "section_title": section_title,
-                        "chunk_content": section_title + "\n\n" + chunk,
+                        "chunk_content": chunk_content,
                         "part": idx,
                     }
                 )
