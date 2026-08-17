@@ -10,6 +10,7 @@ DATA_DIR = ROOT_DIR / "atguigu" / "data"
 RAW_DIR = DATA_DIR / "raw"
 OUTPUT_DIR = DATA_DIR / "output"
 TEST_DIR = ROOT_DIR / "test"
+STATIC_DIR = ROOT_DIR / "web" / "page"
 
 
 class MineruConfig:

@@ -67,6 +67,7 @@ class NodeSearchEmbedding(NodeBase):
 
 if __name__ == "__main__":
     node = NodeSearchEmbedding()
+    # 标量检索是很死板的, 如果item_name差一个字,就会导致查找不到,全部过滤掉
     init_state = {"item_names": ["DK2509-10前后制动盘"], "rewritten_query": "DK2509-10前盘成本多少"}
     res = node(init_state)
     print(json_format(res))

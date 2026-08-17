@@ -230,7 +230,7 @@ class NodeItemNameConfirm(NodeBase):
         return rewritten_query, answer, final_item_lst, message_id
 
     def search_item_names_in_milvus(self, item_names: list[str]) -> list[dict]:
-        """批量对商品名称进行向量检索，提取检索结果的匹配物料及对应相似度分值
+        """批量对LLM提取的假设商品名称进行向量检索，提取检索结果的真实商品名及对应相似度分值
 
         Args:
             item_names (list[str]): 待检索的商品名称列表
