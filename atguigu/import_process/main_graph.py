@@ -57,8 +57,7 @@ class GraphRunner:
         self.builder.add_edge(NodeDocumentSplit.name, NodeItemNameRecognition.name)
         self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)
         self.builder.add_edge(NodeBGEEmbedding.name, NodeImportMilvus.name)
-        self.builder.add_edge(NodeItemNameRecognition.name, NodeBGEEmbedding.name)
-        self.builder.add_edge(NodeBGEEmbedding.name, END)
+        self.builder.add_edge(NodeImportMilvus.name, END)
 
     def run(self, init_state):
         # 如果有缓存, 就不再编译了,避免时间资源消耗(懒加载)

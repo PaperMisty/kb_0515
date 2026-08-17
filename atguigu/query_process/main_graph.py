@@ -1,3 +1,5 @@
+from atguigu.tool.mongo_client_tool import clear_history
+from atguigu.tool.mongo_client_tool import add_or_update_data
 from langgraph.constants import END
 from langgraph.graph import StateGraph
 
@@ -34,7 +36,8 @@ class QueryMainGraphRunner:
         if answer:
             return NodeAnswerOutput.name
         else:
-            return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
+            # return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
+            return [NodeSearchEmbedding.name, NodeSearchEmbeddingHyde.name]
 
     def add_edges(self):
         self.builder.set_entry_point(NodeItemNameConfirm.name)
@@ -58,9 +61,53 @@ class QueryMainGraphRunner:
 
 
 if __name__ == "__main__":
-    runner = QueryMainGraphRunner()
-    init_state = {
-        # "answer": "haha",
+    import time
+
+    session_id = "test_001"
+    # 清理记录
+    clear_history(session_id)
+    # 添加数据
+    data_dict = {
+        "session_id": session_id,
+        "role": "user",
+        "text": "咨询下烫金机",  # 和万用表。
+        "rewritten_query": None,
+        "item_names": None,
+        "ts": time.time(),
     }
-    result = runner.run(init_state)
-    logger.info(json_format(result))
+    add_or_update_data(data_dict)
+
+    data_dict = {
+        "session_id": session_id,
+        "role": "assistant",
+        "text": "您好。请问是哪个型号",
+        "rewritten_query": None,
+        "item_names": None,
+        "ts": time.time(),
+    }
+    add_or_update_data(data_dict)
+
+    data_dict = {
+        "session_id": session_id,
+        "role": "user",
+        "text": "hak180",  # 和RS-12
+        "rewritten_query": None,
+        "item_names": None,
+        "ts": time.time(),
+    }
+    add_or_update_data(data_dict)
+
+    data_dict = {
+        "session_id": session_id,
+        "role": "assistant",
+        "text": "具体有什么问题呢？",
+        "rewritten_query": None,
+        "item_names": None,
+        "ts": time.time(),
+    }
+    add_or_update_data(data_dict)
+    # 初始化图状态
+    init_state = {"session_id": "test_001", "original_query": "咋用？"}
+    result = QueryMainGraphRunner.create_and_run(init_state)
+
+    print(json_format(result))

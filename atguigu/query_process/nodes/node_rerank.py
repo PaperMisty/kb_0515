@@ -82,6 +82,7 @@ class NodeRerank(NodeBase):
                 "url": doc.get("url"),
             }
             for doc in merge_docs
+            if doc.get("content") and isinstance(doc.get("content"), str)  # 部分 Web 搜索结果可能缺失 snippet
         ]
         # print(len(merge_docs))
         documents = [doc.get("content") for doc in merge_docs]
