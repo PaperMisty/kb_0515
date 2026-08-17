@@ -12,7 +12,7 @@ from atguigu.tool.logger import logger
 
 class NodeBGEEmbedding(NodeBase):
     """
-    混合向量化节点：使用 BGE-M3 模型将文本转换为向量
+    混合向量化节点：使用 BGE-M3 模型将每个chunk_content文本转换为向量
     """
 
     name = "node_bge_embedding"
@@ -51,7 +51,7 @@ class NodeBGEEmbedding(NodeBase):
 
         with open(md_path_obj.parent / f"{md_path_obj.stem}_embedding_chunks.json", "w", encoding="utf-8") as f:
             f.write(json_format(chunks))
-        logger.info(f"{str(md_path_obj)}已经写入chnuks内容")
+        logger.info(f"{str(md_path_obj)}已经写入chunks内容")
 
         return {"chunk_dict_list": chunks}
 
