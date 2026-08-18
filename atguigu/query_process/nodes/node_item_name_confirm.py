@@ -283,11 +283,11 @@ class NodeItemNameConfirm(NodeBase):
                 continue
 
             distance = item_info.get("distance", 0.0)
-            if distance >= 0.85:
+            if distance >= 0.8:
                 # 高置信度（可以直接确认）
                 choosed_item_lst.append(item_name_val)
                 logger.info(f"高置信度匹配: {item_name_val}")
-            elif 0.6 < distance < 0.85:
+            elif 0.6 < distance < 0.8:
                 # 中等置信度（需提供给用户做澄清候选）
                 optional_item_lst.append(item_name_val)
                 logger.info(f"中等置信度匹配: {item_name_val}")
@@ -299,8 +299,11 @@ class NodeItemNameConfirm(NodeBase):
         if choosed_item_lst:
             # 存在高置信度匹配，直接对齐使用
             final_item_lst = choosed_item_lst
-        elif optional_item_lst:
-            # 只有中置信度，拼装交互澄清话术
+        elif len(optional_item_lst) == 1:
+            # 中置信度有一个,直接对齐使用
+            final_item_lst = optional_item_lst
+        elif len(optional_item_lst) > 1:
+            # 中置信度有多个，拼装交互澄清话术
             tmp = "\t".join(optional_item_lst)
             answer = f"您想咨询的是以下哪一个? \n: {tmp} "
         else:

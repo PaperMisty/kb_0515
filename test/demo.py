@@ -1,5 +1,6 @@
 # atguigu/test/myfastapi/mount_static.py
 
+from fastapi import Depends
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -26,7 +27,32 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 #      ↓
 # 返回给用户
 
+
+@app.get("/testheader")
+def testheader(request: Request):
+    AcceptEncoding = request.headers.get("Accept-Encoding")
+    print(AcceptEncoding)
+    return {"Accept-Encoding": AcceptEncoding}
+
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+# 情况1：使用普通类
+class User:
+    def __init__(self, name: str, age: int):
+        self.name = name
+        self.age = age
+
+
+@app.post("/users")
+def create_user(user: User = Depends(User)):  # ❌ 这会报错！
+    return {"name": user.name, "age": user.age}
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("demo:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("demo:app", host="127.0.0.1", port=8001, reload=True)

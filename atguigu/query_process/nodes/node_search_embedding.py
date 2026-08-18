@@ -62,6 +62,10 @@ class NodeSearchEmbedding(NodeBase):
         embedding_chunks = []
         for search_result in res[0]:
             embedding_chunks.append({**search_result["entity"], "score": search_result["distance"], "source": source})
+
+        # =========== 展示示例 ==========
+        logger.info(f"Re-Query向量检索结果: {len(embedding_chunks)}")
+        logger.info(json_format(embedding_chunks[:2]))
         return embedding_chunks
 
 

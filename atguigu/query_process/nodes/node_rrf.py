@@ -22,7 +22,6 @@ class NodeRrf(NodeBase):
         :return: 更新后的状态对象
         """
 
-        logger.info(f"【{self.name}】节点逻辑")
         hyde_embedding_chunks = state.get("hyde_embedding_chunks", "")
         embedding_chunks = state.get("embedding_chunks", "")
         if not hyde_embedding_chunks or not embedding_chunks:

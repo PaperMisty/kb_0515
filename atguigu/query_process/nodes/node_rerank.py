@@ -25,7 +25,6 @@ class NodeRerank(NodeBase):
         rerank_merge_docs = self.get_rerank_docs(state)
         # 断崖检测
         reranked_docs = self.cliff_detection(rerank_merge_docs)
-        logger.info(json_format(reranked_docs))
         return {"reranked_docs": reranked_docs}
 
     def cliff_detection(self, rerank_merge_docs: list[dict]) -> list[dict]:
@@ -64,7 +63,6 @@ class NodeRerank(NodeBase):
         Returns:
             list[dict]: _description_
         """
-        logger.info(f"【{self.name}】节点逻辑")
         rewritten_query = state.get("rewritten_query")
         rrf_chunks = state.get("rrf_chunks")
         web_search_docs = state.get("web_search_docs")
@@ -74,17 +72,17 @@ class NodeRerank(NodeBase):
             raise ValueError(f"没有召回结果: {rrf_chunks=},{web_search_docs=},{rewritten_query=}")
 
         merge_docs = rrf_chunks + web_search_docs
-        merge_docs = [
-            {
-                "title": doc.get("item_name", doc.get("title")),
-                "content": doc.get("content"),
-                "source": doc.get("source"),
-                "url": doc.get("url"),
-            }
-            for doc in merge_docs
-            if doc.get("content") and isinstance(doc.get("content"), str)  # 部分 Web 搜索结果可能缺失 snippet
-        ]
-        # print(len(merge_docs))
+        cleaned_docs = []
+        for doc in merge_docs:
+            content_val = doc.get("chunk_content") or doc.get("content")
+            if content_val and isinstance(content_val, str):
+                cleaned_docs.append({
+                    "title": doc.get("item_name") or doc.get("title") or "未知标题",
+                    "content": content_val,
+                    "source": doc.get("source"),
+                    "url": doc.get("url"),
+                })
+        merge_docs = cleaned_docs
         documents = [doc.get("content") for doc in merge_docs]
         # 获取Web和Local重排序的排名
         rerank_lst = text_rerank(query=rewritten_query, documents=documents, top_n=len(merge_docs))
@@ -93,6 +91,9 @@ class NodeRerank(NodeBase):
             merge_docs[item["index"]]["score"] = item["score"]
         # 按分数排名
         rerank_merge_docs = sorted(merge_docs, key=lambda x: x["score"], reverse=True)
+        # =========== 展示示例 ==========
+        logger.info(f"Reranker重排结果: {len(rerank_merge_docs)}")
+        logger.info(json_format(rerank_merge_docs[:2]))
         return rerank_merge_docs
 
 

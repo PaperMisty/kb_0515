@@ -22,12 +22,11 @@ class NodeSearchEmbeddingHyde(NodeBase):
 
     def process(self, state: QueryGraphState):
         """
-        节点逻辑
+        重写问题给到LLM输出Hybird答案,追加问题进行检索数据库
         :param state: 工作流状态对象
         :return: 更新后的状态对象
         """
 
-        logger.info(f"【{self.name}】节点逻辑")
         item_names = state.get("item_names")
         rewritten_query = state.get("rewritten_query")
         if not item_names or not rewritten_query:
@@ -47,10 +46,13 @@ class NodeSearchEmbeddingHyde(NodeBase):
         ]
 
         hybrid_answer = llm.invoke(input=msg).content
-        print(f"{hybrid_answer=}")
 
-        hyde_embedding_chunks = NodeSearchEmbedding().search_chunks(f"问题:{rewritten_query}\n答案:{hybrid_answer}", item_names, source="local")
-
+        hyde_embedding_chunks = NodeSearchEmbedding().search_chunks(
+            f"问题:{rewritten_query}\n答案:{hybrid_answer}", item_names, source="local"
+        )
+        # =========== 展示示例 ==========
+        logger.info(f"HyDE检索结果: {len(hyde_embedding_chunks)}")
+        logger.info(json_format(hyde_embedding_chunks[:2]))
         # return state
         return {"hyde_embedding_chunks": hyde_embedding_chunks}
 

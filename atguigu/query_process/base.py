@@ -5,6 +5,9 @@
 
 定义统一的节点接口规范，提供通用功能
 """
+from atguigu.tool.task_utils import add_done_task
+from atguigu.tool.task_utils import get_task_info
+from atguigu.tool.task_utils import add_running_task
 from abc import abstractmethod, ABC
 
 from atguigu.query_process.state import QueryGraphState
@@ -27,15 +30,22 @@ class NodeBase(ABC):
         节点执行入口
         """
         try:
-            logger.info(f"{self.name} 开始执行...")
+            logger.info(f"[{self.name}] 开始执行...")
+            q = state.get("q")
+            task_id = state.get("task_id")
+            add_running_task(task_id, self.name)
+            q.put({"event": "progress", "data": get_task_info(task_id)})
 
             result = self.process(state)
 
-            logger.info(f"{self.name} 结束执行...")
+            add_done_task(task_id, self.name)
+            q.put({"event": "progress", "data": get_task_info(task_id)})
+
+            logger.info(f"[{self.name}] 结束执行...")
 
             return result
         except Exception as e:
-            logger.error(f"{self.name} 执行失败: {e}")
+            logger.error(f"[{self.name}] 执行失败: {e}")
             raise
 
     @abstractmethod

@@ -1,8 +1,15 @@
 # atguigu/query_process/nodes/node_answer_output.py
 
+from atguigu.tool.json_format_tool import json_format
+from atguigu.tool.mongo_client_tool import add_or_update_data
+from atguigu.config.config import LLMConfig
+from langchain.chat_models import init_chat_model
+from atguigu.tool.mongo_client_tool import get_recent_history_list
+from atguigu.config.config import PromptConfig
 from atguigu.query_process.base import NodeBase
 from atguigu.query_process.state import QueryGraphState
 from atguigu.tool.logger import logger
+import time
 
 
 class NodeAnswerOutput(NodeBase):
@@ -15,12 +22,79 @@ class NodeAnswerOutput(NodeBase):
 
     def process(self, state: QueryGraphState):
         """
-        节点逻辑
+        将查询数据库得到的信息给到LLM,作为answer回答, 若置信度较低,则直接返回answer
         :param state: 工作流状态对象
         :return: 更新后的状态对象
         """
 
-        # TODO
-        logger.info(f"【{self.name}】节点逻辑")
+        item_names = state.get("item_names")
+        rewritten_query = state.get("rewritten_query")
+        q = state.get("q")
+        answer = state.get("answer")
+        session_id = state.get("session_id")
+        # 构造mongodb对话结构
+        data_dict = {
+            "session_id": session_id,
+            "role": "assistant",
+            "text": answer,
+            "rewritten_query": rewritten_query,
+            "item_names": item_names,
+            "ts": time.time(),
+        }
+        # 置信度较低/中等情况, 触发直接回答
+        if answer:
+            q.put({"event": "progress", "data": {"delta": answer}})
+            q.put({"event": "final", "data": ""})
+            # 对话写入mongodb
+            # insert_id = add_or_update_data(data_dict) 已经在主体识别Node中写入了
+            logger.info(f"answer输出信息已插入数据库, id:{insert_id}")
+        # 置信度较高情况, 触发LLM回答
+        else:
+            chunk_dict_list = state.get("reranked_docs")
+            # 拼接chunk_dict内容
+            combine_content = ""
+            for idx, chunk_dict in enumerate(chunk_dict_list, 1):
+                content = f'[{idx}][{chunk_dict["source"]}][{chunk_dict["title"]}]\n[{chunk_dict["content"]}]\n\n'
+                combine_content += content
+            # ===================
+            # 测试,查看chunk_content是否存在链接
+            import re
 
-        return state
+            md_img_pattern = re.compile(r"!\[.*?\]\((.*?)\)")
+            matches = md_img_pattern.findall(combine_content)
+            if matches:
+                print(matches)
+            else:
+                print("不存在图片!!!")
+                logger.info(json_format(chunk_dict_list[:3]))
+
+            # ===================
+            # 拼接历史对话记录
+            history_session = get_recent_history_list(session_id, limit=10)
+            combine_session = ""
+            for session in history_session:
+                content = f'[{session.get("role")}:][{session.get("text")}]'
+                combine_session += content
+
+            # 构造提示词给LLM
+            prompt = PromptConfig.ANSWER_PROMPT.format(
+                context=combine_content, history=combine_session, item_names=item_names, question=rewritten_query
+            )
+            llm = init_chat_model(
+                model=LLMConfig.item_model,
+                model_provider=LLMConfig.model_provider,
+                base_url=LLMConfig.base_url,
+                api_key=LLMConfig.api_key,
+                temperature=LLMConfig.temperature,
+            )
+            msg = [{"role": "user", "content": prompt}]
+            # 拿到流式对话的生成器对象, 放入queue
+            res_generator = llm.stream(msg)
+            for res_delta in res_generator:
+                q.put({"event": "delta", "data": {"delta": res_delta.content}})
+                answer += res_delta.content
+            q.put({"event": "final", "data": ""})
+            data_dict["text"] = answer
+            insert_id = add_or_update_data(data_dict)
+            logger.info(f"answer输出信息已插入数据库, id:{insert_id}")
+        return {"answer": answer}

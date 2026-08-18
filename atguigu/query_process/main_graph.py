@@ -36,8 +36,7 @@ class QueryMainGraphRunner:
         if answer:
             return NodeAnswerOutput.name
         else:
-            # return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
-            return [NodeSearchEmbedding.name, NodeSearchEmbeddingHyde.name]
+            return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
 
     def add_edges(self):
         self.builder.set_entry_point(NodeItemNameConfirm.name)

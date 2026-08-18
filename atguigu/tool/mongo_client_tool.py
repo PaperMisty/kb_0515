@@ -34,7 +34,7 @@ def get_collection():
 
 # 实现CRUD
 # 查:最近历史对话记录
-def get_recent_history_list(session_id, limit=10) -> list:
+def get_recent_history_list(session_id, limit=10, reverse=True) -> list:
     """获取特定会话的最近10条记录
 
     Args:
@@ -45,7 +45,12 @@ def get_recent_history_list(session_id, limit=10) -> list:
         list:会话内容列表
     """
     collection = get_collection()
-    res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
+    if reverse:
+        # 取最新的limit条历史记录, 最新的放前面, 给到LLM阅读
+        res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
+    else:
+        # 取最新的limit条历史记录, 最新的放后面, 给到用户对话栏
+        res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit).sort("ts", 1)
     return list(res)
 
 
