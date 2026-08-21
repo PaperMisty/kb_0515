@@ -32,6 +32,7 @@ class NodeAnswerOutput(NodeBase):
         q = state.get("q")
         answer = state.get("answer")
         session_id = state.get("session_id")
+        is_low_confidence = state.get("is_low_confidence", False)
         # 构造mongodb对话结构
         data_dict = {
             "session_id": session_id,
@@ -41,14 +42,51 @@ class NodeAnswerOutput(NodeBase):
             "item_names": item_names,
             "ts": time.time(),
         }
-        # 置信度较低/中等情况, 触发直接回答
+        # 置信度较低/中等情况, 触发直接回答（中置信度多个选项的确认澄清提示）
         if answer:
             q.put({"event": "delta", "data": {"delta": answer}})
             q.put({"event": "final", "data": ""})
             # 对话写入mongodb
             # insert_id = add_or_update_data(data_dict) 已经在主体识别Node中写入了
             # logger.info(f"answer输出信息已插入数据库, id:{insert_id}")
-        # 置信度较高情况, 触发LLM回答
+        # 置信度极低或主体未识别，网络搜索总结情况
+        elif is_low_confidence:
+            web_search_docs = state.get("web_search_docs", [])
+            combine_content = ""
+            for idx, doc in enumerate(web_search_docs, 1):
+                content = f'[{idx}][来源: {doc.get("title")}][网址: {doc.get("url")}]\n内容摘要: {doc.get("content")}\n\n'
+                combine_content += content
+                
+            # 拼接历史对话记录
+            history_session = get_recent_history_list(session_id, limit=3)
+            combine_session = ""
+            for session in history_session:
+                content = f'[{session.get("role")}:][{session.get("text")}]'
+                combine_session += content
+
+            # 构造提示词给LLM
+            prompt = PromptConfig.LOW_CONFIDENCE_ANSWER_PROMPT.format(
+                context=combine_content, history=combine_session, question=rewritten_query
+            )
+            llm = init_chat_model(
+                model=LLMConfig.item_model,
+                model_provider=LLMConfig.model_provider,
+                base_url=LLMConfig.base_url,
+                api_key=LLMConfig.api_key,
+                temperature=LLMConfig.temperature,
+            )
+            msg = [{"role": "user", "content": prompt}]
+            # 拿到流式对话的生成器对象, 放入queue
+            res_generator = llm.stream(msg)
+            answer = ""
+            for res_delta in res_generator:
+                q.put({"event": "delta", "data": {"delta": res_delta.content}})
+                answer += res_delta.content
+            q.put({"event": "final", "data": ""})
+            data_dict["text"] = answer
+            insert_id = add_or_update_data(data_dict)
+            logger.info(f"低置信度网络搜索总结信息已插入数据库, id:{insert_id}")
+        # 置信度较高情况, 触发常规本地RAG回答
         else:
             chunk_dict_list = state.get("reranked_docs")
             # 拼接chunk_dict内容

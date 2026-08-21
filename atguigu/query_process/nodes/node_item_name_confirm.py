@@ -52,7 +52,7 @@ class NodeItemNameConfirm(NodeBase):
         # 2. 进行意图识别,重写问题
         rewritten_query, item_names = self.get_rewritten_and_item_names(context, original_query)
         # 3. 进行向量匹配,对齐主体信息,并生成助手回复
-        rewritten_query, answer, final_item_lst, message_id = self.get_hierarchical_align_item_name(
+        rewritten_query, answer, final_item_lst, message_id, is_low_confidence = self.get_hierarchical_align_item_name(
             session_id, message_id, rewritten_query, original_query, item_names
         )
 
@@ -62,6 +62,7 @@ class NodeItemNameConfirm(NodeBase):
             "rewritten_query": rewritten_query,
             "item_names": final_item_lst,
             "answer": answer,
+            "is_low_confidence": is_low_confidence,
         }
 
     def get_history_context(self, state: QueryGraphState) -> tuple[str, str, ObjectId, str]:
@@ -219,19 +220,21 @@ class NodeItemNameConfirm(NodeBase):
             rewritten_query = original_query
 
         # - 防御没有提取到商品名称
+        is_low_confidence = False
         if not item_names:
             logger.warning("未提取到商品名称")
+            is_low_confidence = True
         else:
             # 1. 向量数据库混合检索物料
             matched_results = self.search_item_names_in_milvus(item_names)
             # 2. 对分值进行层级化评估对齐
-            final_item_lst, answer = self.align_item_names_by_score(matched_results)
+            final_item_lst, answer, is_low_confidence = self.align_item_names_by_score(matched_results)
             # 3. 完成 MongoDB 会话状态回写
             message_id = self.handle_session_history_update(
                 session_id, message_id, rewritten_query, final_item_lst, answer
             )
 
-        return rewritten_query, answer, final_item_lst, message_id
+        return rewritten_query, answer, final_item_lst, message_id, is_low_confidence
 
     def search_item_names_in_milvus(self, item_names: list[str]) -> list[dict]:
         """批量对LLM提取的假设商品名称进行向量检索，提取检索结果的真实商品名及对应相似度分值
@@ -302,6 +305,7 @@ class NodeItemNameConfirm(NodeBase):
 
         final_item_lst = []
         answer = ""
+        is_low_confidence = False
 
         logger.info(f"choosed_item_lst: {choosed_item_lst}, optional_item_lst: {optional_item_lst}")
         if choosed_item_lst:
@@ -315,11 +319,11 @@ class NodeItemNameConfirm(NodeBase):
             tmp = "\t".join(optional_item_lst)
             answer = f"您想咨询的是以下哪一个? \n: {tmp} "
         else:
-            # 置信度过低或数据库无该内容
-            answer = "数据库中未找到相关内容, 请重新输入"
-            logger.debug(f"未提取到商品名称, 原始检索结果: {matched_results}")
+            # 置信度过低或数据库无该内容，此处不再直接生成拒答 answer，而是标记低置信度，交给网络搜索
+            is_low_confidence = True
+            logger.info("置信度过低或无匹配主体，标记 is_low_confidence = True，后续交由网络搜索")
 
-        return final_item_lst, answer
+        return final_item_lst, answer, is_low_confidence
 
     def handle_session_history_update(
         self, session_id: str, message_id: ObjectId, rewritten_query: str, final_item_lst: list[str], answer: str

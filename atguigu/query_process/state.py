@@ -34,3 +34,4 @@ class QueryGraphState(TypedDict):
     item_names: List[str]  # 提取出的商品名称
     rewritten_query: str  # 改写后的问题
     history: list  # 历史对话记录
+    is_low_confidence: bool  # 是否低置信度（无主体识别）

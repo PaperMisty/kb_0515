@@ -33,17 +33,33 @@ class QueryMainGraphRunner:
 
     def after_item_name_confirm_router(self, state: QueryGraphState):
         answer = state.get("answer", "")
+        is_low_confidence = state.get("is_low_confidence", False)
         if answer:
+            # 中置信度多个选项，跳转至澄清回答
+            return NodeAnswerOutput.name
+        elif is_low_confidence:
+            # 低置信度，只路由去网络搜索节点
+            logger.info("【路由】主体匹配置信度低，只进行网络搜索")
+            return NodeWebSearchMcp.name
+        else:
+            # 高置信度，本地向量 + 网络搜索并行检索
+            return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
+
+    def after_web_search_router(self, state: QueryGraphState):
+        is_low_confidence = state.get("is_low_confidence", False)
+        if is_low_confidence:
+            # 低置信度，网络搜索后直接跳转到输出生成节点
             return NodeAnswerOutput.name
         else:
-            return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name, NodeWebSearchMcp.name]
+            # 正常高置信度，网络搜索后进入 RRF 排序融合
+            return NodeRrf.name
 
     def add_edges(self):
         self.builder.set_entry_point(NodeItemNameConfirm.name)
         self.builder.add_conditional_edges(NodeItemNameConfirm.name, self.after_item_name_confirm_router)
         self.builder.add_edge(NodeSearchEmbeddingHyde.name, NodeRrf.name)
         self.builder.add_edge(NodeSearchEmbedding.name, NodeRrf.name)
-        self.builder.add_edge(NodeWebSearchMcp.name, NodeRrf.name)
+        self.builder.add_conditional_edges(NodeWebSearchMcp.name, self.after_web_search_router)
         self.builder.add_edge(NodeRrf.name, NodeRerank.name)
         self.builder.add_edge(NodeRerank.name, NodeAnswerOutput.name)
         self.builder.add_edge(NodeAnswerOutput.name, END)
