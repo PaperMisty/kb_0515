@@ -1011,3 +1011,147 @@ textarea::placeholder {
     cursor: not-allowed;
 }
 
+/* ==================== 引用标贴及侧边抽屉系统 ==================== */
+
+/* 1. 引用小角标样式 */
+.citation-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #a05d2c;                  /* 焦糖橙色字 */
+    background: #fef3c7;             /* 暖金黄色底 */
+    border: 1px solid rgba(212, 163, 115, 0.3);
+    border-bottom: 2px solid #d97706; /* 立体底部边缘 */
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: 0 4px;
+    cursor: pointer;
+    vertical-align: super;           /* 使其上浮角标 */
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.citation-badge:hover {
+    background: #fde68a;             /* 悬停加深 */
+    transform: scale(1.08) translateY(-1px);
+    box-shadow: 0 2px 4px rgba(212, 163, 115, 0.2);
+}
+
+.citation-badge:active {
+    transform: scale(0.95);
+    border-bottom-width: 1px;
+}
+
+/* 2. 背景遮罩层 */
+.drawer-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(78, 61, 48, 0.15); /* 使用燕麦暖焦糖半透明底 */
+    backdrop-filter: blur(2px);       /* 轻微磨砂玻璃感 */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.drawer-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 3. 侧边抽屉面板 */
+.source-drawer {
+    position: fixed;
+    top: 0; right: 0;
+    width: 420px; height: 100%;
+    background: #fdfbf7;             /* 燕麦奶白底 */
+    box-shadow: -8px 0 32px rgba(78, 61, 48, 0.12);
+    transform: translateX(100%);     /* default hide */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid #e9e4d9;
+}
+
+.source-drawer.open {
+    transform: translateX(0);        /* active slide in */
+}
+
+/* 4. 抽屉内部排版 */
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e9e4d9;
+    background: #f6f1e5;
+}
+
+.drawer-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text);
+    font-weight: 700;
+}
+
+.drawer-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #a89f91;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: all 0.2s ease;
+}
+
+.drawer-header .close-btn:hover {
+    color: #dc2626;
+    transform: scale(1.1);
+}
+
+.drawer-body {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.drawer-section {
+    margin-bottom: 24px;
+}
+
+.drawer-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7c6d61;
+    margin-bottom: 8px;
+}
+
+.drawer-value {
+    font-size: 14px;
+    color: var(--text);
+    background: #ffffff;
+    border: 1px solid #e9e4d9;
+    padding: 10px 14px;
+    border-radius: 6px;
+    line-height: 1.5;
+}
+
+/* 原文展示特有样式 */
+.drawer-value.raw-content {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    white-space: pre-wrap;           /* wrap text */
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #f9f7f1;             /* warm sand */
+    color: #4b3f35;
+    border-color: #e4decb;
+}
+

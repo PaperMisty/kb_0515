@@ -274,7 +274,7 @@ class NodeItemNameConfirm(NodeBase):
 
         return matched_results
 
-    def align_item_names_by_score(self, matched_results: list[dict]) -> tuple[list[str], str]:
+    def align_item_names_by_score(self, matched_results: list[dict]) -> tuple[list[str], str, bool]:
         """根据相似度分值将检索到的物料归入高置信度（确认）或中置信度（候选）分类中
 
         Args:

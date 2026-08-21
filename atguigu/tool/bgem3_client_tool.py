@@ -1,8 +1,10 @@
 from atguigu.tool.json_format_tool import json_format
 from atguigu.config.config import EmbeddingConfig
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
+import threading
 
 bge_m3_model = None
+bge_model_lock = threading.Lock()
 
 
 def get_bgem3_model():
@@ -28,8 +30,9 @@ def get_bgem3_embedding(
     Returns:
         dict: 稀疏和稠密向量
     """
-    model = get_bgem3_model()
-    embeddings = model.encode_documents(texts)
+    with bge_model_lock:
+        model = get_bgem3_model()
+        embeddings = model.encode_documents(texts)
     return {
         "dense": [list(vec.tolist()) for vec in embeddings.get("dense")],
         "sparse": [dict(zip(vec.indices.tolist(), vec.data.tolist())) for vec in embeddings.get("sparse")],

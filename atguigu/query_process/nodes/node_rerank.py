@@ -81,6 +81,8 @@ class NodeRerank(NodeBase):
                     "content": content_val,
                     "source": doc.get("source"),
                     "url": doc.get("url"),
+                    "file_title": doc.get("file_title"),
+                    "section_title": doc.get("section_title"),
                 })
         merge_docs = cleaned_docs
         documents = [doc.get("content") for doc in merge_docs]

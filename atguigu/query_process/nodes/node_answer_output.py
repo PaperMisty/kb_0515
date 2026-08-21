@@ -76,6 +76,18 @@ class NodeAnswerOutput(NodeBase):
                 temperature=LLMConfig.temperature,
             )
             msg = [{"role": "user", "content": prompt}]
+            # 新增：向前端推送网络搜索对应的 chunks 数据包以便定位展示
+            web_chunks = [
+                {
+                    "id": str(idx),
+                    "file_title": doc.get("title", "网络搜索结果"),
+                    "section_title": doc.get("url", ""),
+                    "content": doc.get("content", "")
+                }
+                for idx, doc in enumerate(web_search_docs, 1)
+            ]
+            q.put({"event": "chunks", "data": web_chunks})
+
             # 拿到流式对话的生成器对象, 放入queue
             res_generator = llm.stream(msg)
             answer = ""
@@ -126,6 +138,18 @@ class NodeAnswerOutput(NodeBase):
                 temperature=LLMConfig.temperature,
             )
             msg = [{"role": "user", "content": prompt}]
+            # 新增：将本地召回的切片数据包以序列号 ID 形式推送给前端，与大模型输出的序列标号对齐
+            local_chunks = [
+                {
+                    "id": str(idx),
+                    "file_title": chunk.get("file_title") or chunk.get("source") or "未知文档",
+                    "section_title": chunk.get("section_title") or chunk.get("title") or "正文",
+                    "content": chunk.get("content", "")
+                }
+                for idx, chunk in enumerate(chunk_dict_list, 1)
+            ]
+            q.put({"event": "chunks", "data": local_chunks})
+
             # 拿到流式对话的生成器对象, 放入queue
             res_generator = llm.stream(msg)
             for res_delta in res_generator:

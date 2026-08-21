@@ -7,6 +7,7 @@ if (!sessionId) {
     sessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
     localStorage.setItem('kb_session_id', sessionId);
 }
+let currentSessionChunks = {}; // 全局缓存当前提问检索到的切片数据
 
 // 获取常用 DOM 元素
 const apiPill = document.getElementById('apiPill');
@@ -188,6 +189,12 @@ function formatAnswerToHtml(answerText) {
     // 3. 匹配未被 Markdown 图片或链接格式包裹的裸图片 URL，并自动包装为 ![图片](url) 格式
     const imgRegex = /(?<!\()https?:\/\/[^\s<>\u007f-\u009f]+?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^\s<>#]*)?/gi;
     mdText = mdText.replace(imgRegex, (url) => `![图片](${url})`);
+
+    // 3.5 识别引用标注 [[chunk_id]] 格式并替换为可点击的引用角标
+    mdText = mdText.replace(/\[\[(\d+)\]\]/g, (match, chunkId) => {
+        const displayLabel = chunkId.length > 6 ? chunkId.slice(-4) : chunkId;
+        return `<span class="citation-badge" onclick="openSourceDrawer('${chunkId}')">[${displayLabel}]</span>`;
+    });
 
     // 调用 marked 解析库解析 Markdown，如果未引入则 fallback 降级为普通文本
     let html = '';
@@ -374,6 +381,7 @@ async function submitQuery(text) {
 async function onSend() {
     const text = (inputEl.value || '').trim();
     if (!text) return;
+    currentSessionChunks = {}; // 新提问开始，清空上一轮的缓存切片，防止内存泄露和交叉干扰
     inputEl.value = '';
     addUserMsg(text);
     const botMsgEl = addBotMsgSkeleton();
@@ -394,6 +402,15 @@ async function onSend() {
 
         const es = new EventSource(`${API_BASE}/stream/${task_id}`);
         let rawAnswerText = '';
+
+        es.addEventListener('chunks', (e) => {
+            try {
+                const chunks = JSON.parse(e.data || '[]');
+                chunks.forEach(c => {
+                    currentSessionChunks[c.id] = c;
+                });
+            } catch (_) {}
+        });
 
         es.addEventListener('progress', (e) => {
             try {
@@ -749,6 +766,36 @@ function pollStatus(taskId, itemEl, totalNodes) {
             console.error('Polling error', e);
         }
     }, 1500);
+}
+
+
+// ---------------- 引用抽屉侧边栏交互逻辑 ----------------
+const sourceDrawer = document.getElementById('sourceDrawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
+const closeDrawerBtn = document.getElementById('closeDrawer');
+
+window.openSourceDrawer = function(chunkId) {
+    const chunk = currentSessionChunks[chunkId];
+    if (!chunk) return;
+
+    document.getElementById('drawerFileTitle').textContent = chunk.file_title || '未知来源';
+    document.getElementById('drawerSectionTitle').textContent = chunk.section_title || '正文小节';
+    document.getElementById('drawerChunkContent').textContent = chunk.content || '暂无内容';
+
+    sourceDrawer.classList.add('open');
+    drawerOverlay.classList.add('open');
+};
+
+function closeSourceDrawer() {
+    sourceDrawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+}
+
+if (closeDrawerBtn) {
+    closeDrawerBtn.addEventListener('click', closeSourceDrawer);
+}
+if (drawerOverlay) {
+    drawerOverlay.addEventListener('click', closeSourceDrawer);
 }
 
 

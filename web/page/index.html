@@ -112,6 +112,31 @@
     </main>
 </div>
 
+<!-- 引用详情背景磨砂遮罩 -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+
+<!-- 引用来源详情抽屉侧边栏 -->
+<div class="source-drawer" id="sourceDrawer">
+    <div class="drawer-header">
+        <h3>📖 引用参考详情</h3>
+        <button class="close-btn" id="closeDrawer">×</button>
+    </div>
+    <div class="drawer-body">
+        <div class="drawer-section">
+            <span class="drawer-label">📂 来源文件：</span>
+            <div class="drawer-value" id="drawerFileTitle">-</div>
+        </div>
+        <div class="drawer-section">
+            <span class="drawer-label">📌 参考小节：</span>
+            <div class="drawer-value" id="drawerSectionTitle">-</div>
+        </div>
+        <div class="drawer-section">
+            <span class="drawer-label">📝 参考原文：</span>
+            <pre class="drawer-value raw-content" id="drawerChunkContent">-</pre>
+        </div>
+    </div>
+</div>
+
 <!-- 引入分离的前端主业务逻辑脚本 -->
 <script src="/static/js/app.js?v=4.0"></script>
 </body>

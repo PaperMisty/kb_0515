@@ -1,4 +1,11 @@
 {
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true,
+    },
+    "ruff.enable": true,
+    "ruff.organizeImports": true
+  },
   "editor.fontFamily": "Times new roman",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "liveServer.settings.ignoreFiles": [
