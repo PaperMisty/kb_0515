@@ -1,4 +1,5 @@
 # atguigu/import_process/nodes/node_md_img.py
+from langchain.chat_models.base import _ConfigurableModel
 from atguigu.tool.json_format_tool import json_format
 import asyncio
 from atguigu.config.config import MinIOConfig, LLMConfig, OUTPUT_DIR
@@ -137,7 +138,7 @@ class NodeMDImg(NodeBase):
 
     #  设计令牌桶/限流器,防止服务端限流报错-----尚未考虑TPM限制
     @async_rate_limiter(max_calls=(RPM // llm_batch), period=PERIOD)
-    async def chat_batch(self, llm, messages) -> list[str]:
+    async def chat_batch(self, llm: _ConfigurableModel, messages) -> list[str]:
         """异步批量处理图片摘要请求, 提高RPM
 
         Args:
@@ -148,9 +149,8 @@ class NodeMDImg(NodeBase):
             list[str]: 响应列表
         """
         start_time = time.time()
-        res_list = await llm.abatch(
-            inputs=messages
-        )  # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
+        res_list = await llm.abatch(inputs=messages, return_exceptions=True)
+        # 假设网络+模型处理一张图1s, 那么队列中的间隔都为1s, 实际RPM=1 request / s ,可以abatch代替invoke实现,或者Celery用同一个队列
         print("abatch用时: ", time.time() - start_time, "s:")
         return res_list
 
@@ -165,7 +165,7 @@ class NodeMDImg(NodeBase):
         """
 
         # 初始化VLM模型
-        llm = init_chat_model(
+        llm: _ConfigurableModel = init_chat_model(
             model=LLMConfig.vlm_model,
             model_provider="openai",
             base_url=LLMConfig.base_url,
@@ -209,11 +209,17 @@ class NodeMDImg(NodeBase):
 
             # 判断是否达到 llm_batch 个，或者是最后一个元素
             if len(messages_list) == self.llm_batch or idx == len(img_context_list) - 1:
-                res_list = asyncio.run(self.chat_batch(llm, messages_list))
+                res_list = asyncio.run(
+                    self.chat_batch(llm, messages_list),
+                )
 
                 for inner_idx, res in enumerate(res_list):
-                    # 直接通过临时列表对字典赋值，修改会同步反映到原始 img_context_list 中, 这是存在一个引用传递特性的
-                    batch_contexts[inner_idx]["img_summary"] = res.content
+                    # 若该图片请求抛出了异常，进行容错处理，赋默认值，防止整个工作流崩溃
+                    if isinstance(res, Exception):
+                        logger.error(f"图片 {batch_contexts[inner_idx].get('img_name')} 摘要生成失败: {res}")
+                        batch_contexts[inner_idx]["img_summary"] = "[图片描述无法加载]"
+                    else:
+                        batch_contexts[inner_idx]["img_summary"] = res.content
 
                 # 关键：处理完当前批次后，必须清空临时列表和消息列表
                 messages_list = []

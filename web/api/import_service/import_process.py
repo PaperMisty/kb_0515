@@ -44,6 +44,11 @@ async def index():
     return FileResponse(STATIC_DIR / "import.html")
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 def run_main_graph(task_id: str, file_path: str, file_path_output: str):
     try:
         init_state = {"task_id": task_id, "local_file_path": file_path, "local_dir": file_path_output}
@@ -111,4 +116,4 @@ async def get_task_status(task_id: str):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("import_process:app", port=8000, reload=True)
+    uvicorn.run("import_process:app", port=8000, reload=True, reload_excludes=["*.pdf", "*.md", ".jpg", "**/data/**"])

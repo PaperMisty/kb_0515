@@ -1,4 +1,11 @@
 {
   "editor.fontFamily": "Times new roman",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "liveServer.settings.ignoreFiles": [
+    "**/data/**",
+    "**/*.pdf",
+    "**/*.md",
+    "**/*.jpg",
+    "**/*.png"
+  ]
 }

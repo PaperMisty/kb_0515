@@ -1,0 +1,21 @@
+主进程1 (Uvicorn 8000端口监听进程) / 负责分发网络连接给 Worker
+│
+├── 子进程1 (Python Web Worker 进程) / 承载 FastAPI 框架与 LangGraph 导入流实例
+│    └── 主线程 / 运行 Node 节点的同步/异步逻辑
+│         ├── ➔ [协程并发] (Event Loop): abatch 异步调用大模型 VLM 生成摘要
+│         ├── ➔ [多线程池] (asyncio.to_thread): 分发 requests 阻塞请求至工作线程 (Worker Threads)
+│         │
+│         ├── ➔ [派生孙子进程] (subprocess): cURL 进程 (网络出错时临时下载)
+│         └── ➔ [平行独立进程] (系统服务托管): POWERPNT.EXE / wps.exe 进程 (通过 COM 组件交互控制)
+│
+├── 子进程2 (Python Web Worker 进程)
+└── ...
+
+主进程2 (Uvicorn 8001端口监听进程) / 承载在线问答 API
+│
+├── 子进程1 (Python Web Worker 进程) / 承载 LangGraph 查询流实例
+│    └── 主线程 / 运行 Node 节点的同步/异步逻辑
+│         ├── ➔ [多线程池] (LangGraph ThreadPool): 并发启动 3 个检索线程
+│         └── ➔ [派生孙子进程] (subprocess): WebMCP 通信服务进程 (网络检索)
+│
+└── ...

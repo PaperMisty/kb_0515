@@ -83,7 +83,7 @@ def weighted_hybrid_search(
     Returns:
         list: 混合检索结果
     """
-    ranker = WeightedRanker(*ranker, norm_score=True)
+    ranker = WeightedRanker(*ranker, norm_score=True)  # 这个类默认不会进行归一化?而是我们必须设计表的时候采用了归一化
     # ranker = RRFRanker()  # 采用倒数排名排序
     client = get_milvus_client()
     # 显式加载集合到内存中，防止检索结果因未载入而为空

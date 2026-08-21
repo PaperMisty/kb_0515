@@ -59,7 +59,7 @@ async def delete_history(session_id: str = Path(..., description="会话ID")):
     :param session_id: 会话ID
     :return: 删除结果
     """
-    clear_history({"session_id": session_id})
+    clear_history(session_id)
     print("clear:", session_id)
     return {"status": "ok"}
 
