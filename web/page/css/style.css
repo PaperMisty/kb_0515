@@ -613,7 +613,7 @@ textarea::placeholder {
 
 .file-name {
     font-weight: 600;
-    color: #f1f5f9;
+    color: var(--text);             /* 标题改为高对比度深色 */
     font-size: 15px;
 }
 
@@ -786,11 +786,12 @@ textarea::placeholder {
 .log-duration {
     margin-left: auto;
     font-size: 11px;
-    color: #22d3ee;
-    background: rgba(56, 189, 248, 0.06);
-    border: 1px solid rgba(56, 189, 248, 0.15);
+    color: #a05d2c;                  /* 改为清晰暖焦糖色 */
+    background: #fef3c7;             /* 暖金黄底色 */
+    border: 1px solid rgba(212, 163, 115, 0.25); /* 柔和暖色边框 */
     padding: 1px 8px;
     border-radius: 10px;
+    font-weight: 600;
 }
 
 .log-running {

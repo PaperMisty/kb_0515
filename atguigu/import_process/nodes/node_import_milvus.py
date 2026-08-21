@@ -9,6 +9,11 @@ from atguigu.import_process.state import ImportGraphState
 import json
 
 
+import threading
+
+milvus_lock = threading.Lock()
+
+
 class NodeImportMilvus(NodeBase):
     """
     导入向量库节点：数据持久化
@@ -28,55 +33,62 @@ class NodeImportMilvus(NodeBase):
         chunk_collection = MilvusConfig.chunks_collection
 
         schema = client.create_schema()
-        if not client.has_collection(collection_name=chunk_collection):
-            schema: CollectionSchema = client.create_schema(auto_id=True)
-            schema.add_field(
-                field_name="id",
-                datatype=DataType.INT64,
-                is_primary=True,
-            ).add_field(
-                field_name="item_name",
-                datatype=DataType.VARCHAR,
-                max_length=1000,
-            ).add_field(
-                field_name="file_title",
-                datatype=DataType.VARCHAR,
-                max_length=1000,
-            ).add_field(
-                field_name="section_title",
-                datatype=DataType.VARCHAR,
-                max_length=1000,
-            ).add_field(
-                field_name="chunk_content", datatype=DataType.VARCHAR, max_length=65535
-            ).add_field(
-                field_name="part", datatype=DataType.INT64, max_length=1000
-            ).add_field(
-                field_name="dense", datatype=DataType.FLOAT_VECTOR, dim=chunk_dim
-            ).add_field(
-                field_name="sparse",
-                datatype=DataType.SPARSE_FLOAT_VECTOR,
-            )
-            # 创建索引
-            index_params = client.prepare_index_params()
-            index_params.add_index(
-                field_name="dense",
-                index_name="dense_index",
-                index_type="AUTOINDEX",  # 根据数据量自定义索引算法 FLAT>>IVF_FLAT>>IVF_PQ>>HNSW
-                metric_type="COSINE",
-            )
-            index_params.add_index(
-                field_name="sparse",
-                index_name="sparse_index",
-                index_type="SPARSE_INVERTED_INDEX",
-                metric_type="IP",
-                params={
-                    "inverted_index_algo": "DAAT_MAXSCORE",
-                    "normalize": True,
-                    "quantization": "none",
-                },
-            )
-            # 创建表
-            client.create_collection(chunk_collection, schema=schema, index_params=index_params)
+        with milvus_lock:
+            if not client.has_collection(collection_name=chunk_collection):
+                schema: CollectionSchema = client.create_schema(auto_id=True)
+                schema.add_field(
+                    field_name="id",
+                    datatype=DataType.INT64,
+                    is_primary=True,
+                ).add_field(
+                    field_name="item_name",
+                    datatype=DataType.VARCHAR,
+                    max_length=1000,
+                ).add_field(
+                    field_name="file_title",
+                    datatype=DataType.VARCHAR,
+                    max_length=1000,
+                ).add_field(
+                    field_name="section_title",
+                    datatype=DataType.VARCHAR,
+                    max_length=1000,
+                ).add_field(
+                    field_name="chunk_content", datatype=DataType.VARCHAR, max_length=65535
+                ).add_field(
+                    field_name="part", datatype=DataType.INT64, max_length=1000
+                ).add_field(
+                    field_name="dense", datatype=DataType.FLOAT_VECTOR, dim=chunk_dim
+                ).add_field(
+                    field_name="sparse",
+                    datatype=DataType.SPARSE_FLOAT_VECTOR,
+                )
+                # 创建索引
+                index_params = client.prepare_index_params()
+                index_params.add_index(
+                    field_name="dense",
+                    index_name="dense_index",
+                    index_type="AUTOINDEX",  # 根据数据量自定义索引算法 FLAT>>IVF_FLAT>>IVF_PQ>>HNSW
+                    metric_type="COSINE",
+                )
+                index_params.add_index(
+                    field_name="sparse",
+                    index_name="sparse_index",
+                    index_type="SPARSE_INVERTED_INDEX",
+                    metric_type="IP",
+                    params={
+                        "inverted_index_algo": "DAAT_MAXSCORE",
+                        "normalize": True,
+                        "quantization": "none",
+                    },
+                )
+                # 创建表，增加并发防御
+                try:
+                    client.create_collection(chunk_collection, schema=schema, index_params=index_params)
+                except Exception as e:
+                    if "already exists" in str(e).lower() or "collectionexist" in str(e).lower():
+                        logger.warning(f"Collection {chunk_collection} 已经在另一个任务中被创建，忽略此错误: {e}")
+                    else:
+                        raise e
 
         #  幂等性删除
         file_title = chunks[0]["file_title"]

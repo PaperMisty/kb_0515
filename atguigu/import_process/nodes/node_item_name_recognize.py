@@ -16,7 +16,10 @@ from atguigu.config.config import OUTPUT_DIR
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 import json
+import threading
 from pathlib import Path
+
+milvus_lock = threading.Lock()
 
 
 class NodeItemNameRecognition(NodeBase):
@@ -101,52 +104,57 @@ class NodeItemNameRecognition(NodeBase):
         # 创建milvus表
         client = get_milvus_client()
         collection = MilvusConfig.item_name_collection
-        if not client.has_collection(collection_name=collection):
-            schema: CollectionSchema = client.create_schema(auto_id=True)
-            schema.add_field(
-                field_name="id",
-                datatype=DataType.INT64,
-                is_primary=True,
-            ).add_field(
-                field_name="item_name",
-                datatype=DataType.VARCHAR,
-                max_length=1000,
-            ).add_field(
-                field_name="file_title",
-                datatype=DataType.VARCHAR,
-                max_length=1000,
-            ).add_field(
-                field_name="dense", datatype=DataType.FLOAT_VECTOR, dim=1024
-            ).add_field(
-                field_name="sparse",
-                datatype=DataType.SPARSE_FLOAT_VECTOR,
-            )
-            # 创建索引
-            index_params = client.prepare_index_params()
-            index_params.add_index(
-                field_name="dense",
-                index_name="dense_index",
-                index_type="IVF_FLAT",
-                metric_type="COSINE",
-                params={"nlist": 1000, "nprobe": 100},
-            )
-            index_params.add_index(
-                field_name="sparse",
-                index_name="sparse_index",
-                index_type="SPARSE_INVERTED_INDEX",
-                metric_type="IP",
-                params={
-                    "inverted_index_algo": "DAAT_MAXSCORE",
-                    # 高效的稀疏检索算法
-                    "normalize": True,
-                    # ↑ L2 归一化，让内积 (IP) 等价于余弦相似度
-                    "quantization": "none",
-                    # ↑ 关闭量化，保持原始精度：模型生成的向量已经压缩的一半的精度了（BGE_FP16=1），这里就不再压缩了
-                    # "quantization": "none" → 存储原始向量，不压缩
-                    # "quantization": "sq8" → 存储压缩后的向量（8-bit 量化
-                },
-            )
-            client.create_collection(collection_name=collection, schema=schema, index_params=index_params)
+        with milvus_lock:
+            if not client.has_collection(collection_name=collection):
+                schema: CollectionSchema = client.create_schema(auto_id=True)
+                schema.add_field(
+                    field_name="id",
+                    datatype=DataType.INT64,
+                    is_primary=True,
+                ).add_field(
+                    field_name="item_name",
+                    datatype=DataType.VARCHAR,
+                    max_length=1000,
+                ).add_field(
+                    field_name="file_title",
+                    datatype=DataType.VARCHAR,
+                    max_length=1000,
+                ).add_field(
+                    field_name="dense", datatype=DataType.FLOAT_VECTOR, dim=1024
+                ).add_field(
+                    field_name="sparse",
+                    datatype=DataType.SPARSE_FLOAT_VECTOR,
+                )
+                # 创建索引
+                index_params = client.prepare_index_params()
+                index_params.add_index(
+                    field_name="dense",
+                    index_name="dense_index",
+                    index_type="IVF_FLAT",
+                    metric_type="COSINE",
+                    params={"nlist": 1000, "nprobe": 100},
+                )
+                index_params.add_index(
+                    field_name="sparse",
+                    index_name="sparse_index",
+                    index_type="SPARSE_INVERTED_INDEX",
+                    metric_type="IP",
+                    params={
+                        "inverted_index_algo": "DAAT_MAXSCORE",
+                        # 高效的稀疏检索算法
+                        "normalize": True,
+                        # ↑ L2 归一化，让内积 (IP) 等价于余弦相似度
+                        "quantization": "none",
+                        # ↑ 关闭量化，保持原始精度
+                    },
+                )
+                try:
+                    client.create_collection(collection_name=collection, schema=schema, index_params=index_params)
+                except Exception as e:
+                    if "already exists" in str(e).lower() or "collectionexist" in str(e).lower():
+                        logger.warning(f"Collection {collection} 已经在另一个任务中被创建，忽略此错误: {e}")
+                    else:
+                        raise e
 
         # 幂等性删除表部分内容 ; TODO 可以考虑将md文档hash为依据进行幂等性删除
         client.load_collection(collection_name=collection)
