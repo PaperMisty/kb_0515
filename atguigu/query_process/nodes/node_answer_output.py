@@ -47,7 +47,7 @@ class NodeAnswerOutput(NodeBase):
             q.put({"event": "final", "data": ""})
             # 对话写入mongodb
             # insert_id = add_or_update_data(data_dict) 已经在主体识别Node中写入了
-            logger.info(f"answer输出信息已插入数据库, id:{insert_id}")
+            # logger.info(f"answer输出信息已插入数据库, id:{insert_id}")
         # 置信度较高情况, 触发LLM回答
         else:
             chunk_dict_list = state.get("reranked_docs")

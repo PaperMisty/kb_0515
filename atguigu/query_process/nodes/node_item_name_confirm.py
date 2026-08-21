@@ -173,21 +173,25 @@ class NodeItemNameConfirm(NodeBase):
         elif isinstance(parsed_response, dict):
             rewritten_query = parsed_response.get("rewritten_query", "")
             item_names = parsed_response.get("item_names", [])
-            logger.info(f"意图识别成功(Dict),改写后: {rewritten_query},提取商品: {item_names}")
+            logger.info(f"意图识别成功(Dict),改写后: {rewritten_query},提取主体: {item_names}")
         elif isinstance(parsed_response, ItemNameExtractResult):
             rewritten_query = parsed_response.rewritten_query
             item_names = parsed_response.item_names
-            logger.info(f"意图识别成功(Pydantic),改写后: {rewritten_query},提取商品: {item_names}")
+            logger.info(f"意图识别成功(Pydantic),改写后: {rewritten_query},提取主体: {item_names}")
         else:
             logger.warning(f"大模型返回了非预期的对象类型: {type(parsed_response)}")
             rewritten_query = getattr(parsed_response, "rewritten_query", original_query)
             item_names = getattr(parsed_response, "item_names", [])
 
+        # 强力清洗逻辑：过滤大模型可能幻觉返回的空字符串或纯空格项
+        if isinstance(item_names, list):
+            item_names = [name.strip() for name in item_names if name and isinstance(name, str) and name.strip()]
+
         # 强力防御逻辑：如果模型强行填充了 None、空字符串等，在此做归一化
         if not rewritten_query:
             rewritten_query = original_query
         if not item_names:
-            item_names = []
+            item_names = [rewritten_query]
         elif isinstance(item_names, str):
             item_names = [item_names]
 
@@ -260,7 +264,9 @@ class NodeItemNameConfirm(NodeBase):
                 limit=10,
                 output_fields=["item_name"],
             )
+            # ==========测试检索结果是否含有 '空字符串' ========
             if result:
+                logger.debug(f"==={result[0]=}===")
                 matched_results.extend(result[0])
 
         return matched_results

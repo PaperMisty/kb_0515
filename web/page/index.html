@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掌柜智库</title>
+    <!-- 引入高科技感统一独立样式表 -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 1. 左侧一体化侧边栏 (Sidebar) -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2.5" y="4" width="19" height="16" rx="3" fill="white"/>
+                    <circle cx="12" cy="1.8" r="1.4" fill="white"/>
+                    <rect x="11.6" y="1.8" width="0.8" height="2.2" fill="white"/>
+                    <circle cx="8" cy="10" r="1.3" fill="#38bdf8"/>
+                    <circle cx="16" cy="10" r="1.3" fill="#38bdf8"/>
+                    <rect x="7.2" y="14.2" width="9.6" height="1.6" rx="0.8" fill="#38bdf8"/>
+                </svg>
+            </div>
+            <div class="title">
+                <strong>掌柜智库</strong>
+                <span>RAG 知识检索与导入</span>
+            </div>
+        </div>
+
+        <!-- 导航菜单 -->
+        <nav>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-tab="tab-chat">
+                    <span>💬</span> 智能对话
+                </li>
+                <li class="nav-item" data-tab="tab-import">
+                    <span>📂</span> 知识库管理
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 底部状态指示 -->
+        <div class="sidebar-footer">
+            <span class="pill" id="apiPill">API: 未连接</span>
+        </div>
+    </aside>
+
+    <!-- 2. 右侧核心工作面板 (Main Content) -->
+    <main class="main-content">
+        
+        <!-- Tab 1: 智能对话面板 -->
+        <div class="tab-pane active" id="tab-chat">
+            <div class="topbar">
+                <h2>💬 智能对话检索</h2>
+                <div class="top-actions">
+                    <button class="btn btn-secondary" id="btnClear">清空对话</button>
+                </div>
+            </div>
+
+            <!-- 消息气泡对话区 -->
+            <div class="chat-container" id="chat">
+                <div class="dayline">系统消息</div>
+                <div class="msg bot">
+                    <div class="avatar bot">🤖</div>
+                    <div>
+                        <div class="bubble">您好！我是掌柜智库客服。您可以直接提问，我会基于知识库的内容进行回答，并在“阶段进度”里展示召回与推理过程。</div>
+                        <div class="meta">提示：可以问“如何使用万用表测量电压？”</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="composer-area">
+                <div class="composer-row">
+                    <textarea id="input" placeholder="请输入问题（Enter 发送，Shift+Enter 换行）"></textarea>
+                    <button class="send" id="send">发送</button>
+                </div>
+                <div class="hint">
+                    快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span> + <span class="kbd">Enter</span> 换行
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: 知识库文件导入面板 -->
+        <div class="tab-pane" id="tab-import">
+            <div class="topbar">
+                <h2>📂 知识库文件导入</h2>
+            </div>
+
+            <!-- 文件导入主要区域 -->
+            <div class="import-container">
+                <div class="import-content-wrap">
+                    <!-- 拖拽上传区 -->
+                    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">☁️</div>
+                        <div class="upload-text">点击或拖拽文件到此处导入 (支持 .pdf / .md)</div>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.md">
+                    </div>
+
+                    <!-- 上传与解析进度列表 -->
+                    <div id="fileList" class="file-list">
+                        <!-- 动态上传项占位 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- 引入分离的前端主业务逻辑脚本 -->
+<script src="/static/js/app.js"></script>
+</body>
+</html>
