@@ -43,7 +43,7 @@ class NodeAnswerOutput(NodeBase):
         }
         # 置信度较低/中等情况, 触发直接回答
         if answer:
-            q.put({"event": "progress", "data": {"delta": answer}})
+            q.put({"event": "delta", "data": {"delta": answer}})
             q.put({"event": "final", "data": ""})
             # 对话写入mongodb
             # insert_id = add_or_update_data(data_dict) 已经在主体识别Node中写入了

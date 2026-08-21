@@ -285,17 +285,19 @@ class NodeItemNameConfirm(NodeBase):
 
         for item_info in matched_results:
             item_name_val = item_info.get("entity", {}).get("item_name")
-            if not item_name_val:
+            if not item_name_val or item_name_val.strip() in ["", "空字符串", "None", "null"]:
                 continue
 
             distance = item_info.get("distance", 0.0)
             if distance >= 0.8:
                 # 高置信度（可以直接确认）
-                choosed_item_lst.append(item_name_val)
+                if item_name_val not in choosed_item_lst:
+                    choosed_item_lst.append(item_name_val)
                 logger.info(f"高置信度匹配: {item_name_val}")
             elif 0.6 < distance < 0.8:
                 # 中等置信度（需提供给用户做澄清候选）
-                optional_item_lst.append(item_name_val)
+                if item_name_val not in optional_item_lst:
+                    optional_item_lst.append(item_name_val)
                 logger.info(f"中等置信度匹配: {item_name_val}")
 
         final_item_lst = []

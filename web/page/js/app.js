@@ -38,12 +38,14 @@ async function apiHealth() {
         const res = await fetch(`${API_BASE}/health`);
         if (!res.ok) throw new Error('Health check response not OK');
         apiPill.textContent = 'API: 已连接';
-        apiPill.style.color = '#38bdf8';
-        apiPill.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+        apiPill.style.color = '#16a34a'; // 高清晰度健康绿色字体
+        apiPill.style.borderColor = '#cbd5e1';
+        apiPill.style.borderBottomColor = '#16a34a'; // 下边框健康绿
     } catch (e) {
         apiPill.textContent = 'API: 未连接';
-        apiPill.style.color = '#ef4444';
-        apiPill.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+        apiPill.style.color = '#dc2626'; // 警告红色字体
+        apiPill.style.borderColor = '#cbd5e1';
+        apiPill.style.borderBottomColor = '#dc2626'; // 下边框警告红
     }
 }
 
@@ -93,18 +95,108 @@ function normalizeUrl(rawUrl) {
     return s.replace(/\s/g, '%20');
 }
 
+window.sendConfirmOption = function(btnEl, optionText) {
+    // 禁用当前选项卡下的所有按钮防止多次触发
+    const parent = btnEl.closest('.confirm-buttons-grid');
+    if (parent) {
+        const buttons = parent.querySelectorAll('.btn-confirm-opt');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+    }
+    // 填入输入框并触发发送
+    const inputEl = document.getElementById('input');
+    if (inputEl) {
+        inputEl.value = optionText;
+        const sendBtn = document.getElementById('send');
+        if (sendBtn) {
+            sendBtn.click();
+        }
+    }
+};
+
+function parseConfirmOptions(text) {
+    if (text && text.includes("您想咨询的是以下哪一个")) {
+        const trigger = "您想咨询的是以下哪一个?";
+        const idx = text.indexOf(trigger);
+        const promptText = text.substring(0, idx + trigger.length);
+        let optionsPart = text.substring(idx + trigger.length);
+        
+        // 清洗前导的换行符、冒号等字符
+        optionsPart = optionsPart.replace(/^[\s:\n：\r]+/g, '');
+        
+        // 根据制表符、换行、连续的两个及以上空格或逗号切割选项
+        const rawOptions = optionsPart.split(/[\t\n,，\r]|\s{2,}/);
+        const options = rawOptions
+            .map(opt => opt.trim())
+            .filter(opt => opt && opt !== "空字符串" && opt !== "None" && opt !== "null");
+            
+        if (options.length > 0) {
+            return {
+                prompt: promptText,
+                options: options
+            };
+        }
+    }
+    return null;
+}
+
 function formatAnswerToHtml(answerText) {
     if (!answerText) return '';
-    let html = escapeHtml(answerText);
 
-    // 匹配所有的图片 URL 并包裹为 img 标签
-    const imgRegex = /(?:&lt;|<)?(https?:\/\/[^\s<>\u007f-\u009f]+?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^\s<>#]*)?)(?:&gt;|>)?/gi;
-    html = html.replace(imgRegex, (match, url) => {
-        const decodedUrl = url.replace(/&amp;/g, '&');
-        return `<div class="answer-img-wrap"><img src="${decodedUrl}" loading="lazy" alt="图片" referrerPolicy="no-referrer" onerror="this.parentNode.style.display='none'"></div>`;
+    // 检测是否为中等置信度确认列表，是则直接渲染为交互按钮卡片
+    const optionData = parseConfirmOptions(answerText);
+    if (optionData) {
+        let html = `<div class="confirm-options-wrap">`;
+        html += `<p class="confirm-prompt">${escapeHtml(optionData.prompt)}</p>`;
+        html += `<div class="confirm-buttons-grid">`;
+        optionData.options.forEach(opt => {
+            html += `<button class="btn-confirm-opt" onclick="sendConfirmOption(this, '${escapeHtml(opt)}')">${escapeHtml(opt)}</button>`;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+    
+    let mdText = answerText;
+ 
+    // 0. 预处理：识别可能包含空格但以常见图片扩展名结尾的 URL，将其中的空格替换为 %20，防止链接在空格处截断
+    const rawImgWithSpaceRegex = /(https?:\/\/[^\s<>\u007f-\u009f]+?(?:\s+[^\s<>\u007f-\u009f]+)*?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^\s<>#]*)?)/gi;
+    mdText = mdText.replace(rawImgWithSpaceRegex, (match) => {
+        return match.replace(/\s+/g, '%20');
     });
 
-    html = html.replace(/\r?\n/g, '<br>');
+    // 0.5 预处理：识别普通链接格式中其实是指向图片的链接 [text](image_url)，自动转换为 Markdown 图片语法 ![text](image_url) 格式直接渲染图片
+    const imgLinkRegex = /(?<!\!)\[(.*?)\]\((https?:\/\/[^)\u007f-\u009f]+?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^)#]*)?)\)/gi;
+    mdText = mdText.replace(imgLinkRegex, (match, text, url) => {
+        return `![${text}](${url})`;
+    });
+
+    // 1. 预处理：匹配 Markdown 图片，自动将其 URL 中的空格转义为 %20 防止解析失败
+    mdText = mdText.replace(/\!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => {
+        const cleanUrl = url.trim().replace(/\s+/g, '%20');
+        return `![${alt}](${cleanUrl})`;
+    });
+
+    // 2. 预处理：匹配 Markdown 链接，自动将其 URL 中的空格转义为 %20
+    mdText = mdText.replace(/(?<!\!)\[(.*?)\]\((.*?)\)/g, (match, text, url) => {
+        const cleanUrl = url.trim().replace(/\s+/g, '%20');
+        return `[${text}](${cleanUrl})`;
+    });
+
+    // 3. 匹配未被 Markdown 图片或链接格式包裹的裸图片 URL，并自动包装为 ![图片](url) 格式
+    const imgRegex = /(?<!\()https?:\/\/[^\s<>\u007f-\u009f]+?\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?[^\s<>#]*)?/gi;
+    mdText = mdText.replace(imgRegex, (url) => `![图片](${url})`);
+
+    // 调用 marked 解析库解析 Markdown，如果未引入则 fallback 降级为普通文本
+    let html = '';
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+        html = marked.parse(mdText);
+    } else {
+        html = escapeHtml(mdText).replace(/\r?\n/g, '<br>');
+    }
+
     return html;
 }
 

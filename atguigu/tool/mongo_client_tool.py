@@ -34,8 +34,8 @@ def get_collection():
 
 # 实现CRUD
 # 查:最近历史对话记录
-def get_recent_history_list(session_id, limit=10, reverse=False) -> list:
-    """获取特定会话的最近10条记录
+def get_recent_history_list(session_id, limit=3, reverse=False) -> list:
+    """获取特定会话的最近3条记录
 
     Args:
         session_id (_type_): 会话id
@@ -46,12 +46,15 @@ def get_recent_history_list(session_id, limit=10, reverse=False) -> list:
     """
     collection = get_collection()
     if reverse:
+        # 备用情况:最新的需要放最前面
+        res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
+        return list(res)
+    else:
         # 取最新的limit条历史记录, 最新的需要放最后面, 拼接Query, 才能给到LLM阅读
         res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit)
-    else:
-        # 备用情况:最新的需要放最前面
-        res = collection.find({"session_id": session_id}).sort("ts", -1).limit(limit).sort("ts", 1)
-    return list(res)
+        res_list = list(res)
+        res_list.reverse()  # 在内存中反转，达到升序排列效果; 而不能采用一次正向和一次反向sort,会产生怪异行为(feature)
+        return res_list
 
 
 # 增加or更新数据

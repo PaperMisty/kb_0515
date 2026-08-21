@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 # 将工作区根目录加入 Python 寻址路径
 sys.path.append(str(Path(__file__).parents[2]))
 
@@ -23,7 +24,7 @@ from atguigu.tool.task_utils import (
     update_task_status,
     get_task_info,
     add_done_task,
-    add_running_task
+    add_running_task,
 )
 from atguigu.config.config import RAW_DIR, STATIC_DIR, OUTPUT_DIR, MinIOConfig
 from atguigu.import_process.main_graph import GraphRunner
@@ -49,15 +50,19 @@ app.add_middleware(
 
 # ----------------- 1. 通用路由与心跳 -----------------
 
+
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
+
 # ----------------- 2. 问答对话检索服务 -----------------
+
 
 @app.get("/history/{session_id}")
 async def get_history(session_id: str = Path(..., description="会话ID")):
@@ -70,6 +75,7 @@ async def get_history(session_id: str = Path(..., description="会话ID")):
     print("get", session_id)
     return {"items": history_lst}
 
+
 @app.delete("/history/{session_id}")
 async def delete_history(session_id: str = Path(..., description="会话ID")):
     """
@@ -79,11 +85,14 @@ async def delete_history(session_id: str = Path(..., description="会话ID")):
     print("clear:", session_id)
     return {"status": "ok"}
 
+
 class Query(BaseModel):
     query: str = Field(..., description="问题")
     session_id: str = Field(..., description="会话ID")
 
+
 queue_dict = {}
+
 
 def run_query_graph(task_id, original_query, session_id):
     if not queue_dict.get(task_id):
@@ -99,11 +108,13 @@ def run_query_graph(task_id, original_query, session_id):
     except Exception as e:
         import traceback
         import sys
+
         print(f"问答检索工作流执行报错: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
         update_task_status(task_id, TASK_STATUS_FAILED)
         q.put({"event": "error", "data": get_task_info(task_id)})
+
 
 @app.post("/query")
 async def query(background_tasks: BackgroundTasks, query: Query = Body(..., description="查询请求体参数")):
@@ -112,6 +123,7 @@ async def query(background_tasks: BackgroundTasks, query: Query = Body(..., desc
     task_id = str(uuid.uuid4())
     background_tasks.add_task(run_query_graph, task_id, original_query, session_id)
     return {"task_id": task_id, "original_query": original_query, "session_id": session_id}
+
 
 def generate_stream(task_id):
     while not queue_dict.get(task_id):
@@ -140,11 +152,14 @@ def generate_stream(task_id):
         if task_id in queue_dict:
             del queue_dict[task_id]
 
+
 @app.get("/stream/{task_id}")
 async def stream(task_id: str = Path(..., description="任务ID")):
     return StreamingResponse(generate_stream(task_id), media_type="text/event-stream")
 
+
 # ----------------- 3. 知识库文档导入服务 -----------------
+
 
 def run_import_graph(task_id: str, file_path: str, file_path_output: str):
     try:
@@ -155,11 +170,13 @@ def run_import_graph(task_id: str, file_path: str, file_path_output: str):
     except Exception as e:
         import traceback
         import sys
+
         print(f"主图导入工作流执行失败: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
         update_task_status(task_id, TASK_STATUS_FAILED)
         raise Exception(f"主图执行失败,错误信息:{e}")
+
 
 @app.post("/upload")
 async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(..., description="文件描述")):
@@ -195,9 +212,11 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
 
     return {"task_id": task_id}
 
+
 @app.get("/status/{task_id}")
 async def get_task_status(task_id: str):
     return get_task_info(task_id)
+
 
 # ----------------- 4. 挂载静态目录与运行入口 -----------------
 
@@ -205,4 +224,5 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main_service:app", host="127.0.0.1", port=8000, reload=False)
+
+    uvicorn.run("main_service:app", host="127.0.0.1", port=8000, reload=True)

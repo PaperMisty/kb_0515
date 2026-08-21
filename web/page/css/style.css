@@ -1,17 +1,17 @@
-/* 全局样式与变量定义 */
+/* 全局样式与变量定义 - 温馨暖黄色系 */
 :root {
-    --bg: #0f172a;
-    --sidebar-bg: rgba(15, 23, 42, 0.95);
-    --panel: rgba(30, 41, 59, 0.4);
-    --panel-border: rgba(255, 255, 255, 0.08);
-    --text: #e2e8f0;
-    --muted: #94a3b8;
-    --brand: #38bdf8;
-    --brand2: #818cf8;
-    --bubble-user: linear-gradient(135deg, #38bdf8, #818cf8);
-    --bubble-bot: rgba(15, 23, 42, 0.6);
-    --border: rgba(255, 255, 255, 0.08);
-    --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    --bg: #faf7f0;                  /* 温暖的燕麦奶底色 */
+    --sidebar-bg: #f4edd8;          /* 奶油暖黄色侧边栏 */
+    --panel: #ffffff;               /* 主板卡片采用白色 */
+    --panel-border: #e9dec4;        /* 柔和的暖黄边框线 */
+    --text: #4e3d30;                /* 深咖啡色文字，极具阅读舒适感 */
+    --muted: #8d7a6b;               /* 焦糖色调的辅助文字 */
+    --brand: #d4a373;               /* 焦糖金（强调色、主按钮） */
+    --brand2: #cca772;              /* 暖金色 */
+    --bubble-user: #dce4bf;         /* 用户气泡：高雅暖绿纯色 */
+    --bubble-bot: #ffffff;          /* 机器人气泡：纯白 */
+    --border: #e9dec4;
+    --shadow: 0 10px 30px -10px rgba(78, 61, 48, 0.12); /* 柔和投影 */
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -23,11 +23,9 @@ body {
     margin: 0;
     font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, Arial, sans-serif;
     background-color: var(--bg);
-    background-image: radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
-                      radial-gradient(circle at 85% 30%, rgba(129, 140, 248, 0.08) 0%, transparent 50%),
-                      linear-gradient(to right, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    background-image: radial-gradient(circle at 15% 50%, rgba(212, 163, 115, 0.05) 0%, transparent 50%),
+                      radial-gradient(circle at 85% 30%, rgba(204, 167, 114, 0.05) 0%, transparent 50%);
+    background-size: 100% 100%, 100% 100%;
     color: var(--text);
     height: 100vh;
     overflow: hidden;
@@ -85,7 +83,8 @@ body {
 
 .title strong {
     font-size: 16px;
-    color: #f8fafc;
+    color: var(--text);
+    font-weight: bold;
     letter-spacing: 0.5px;
 }
 
@@ -140,14 +139,19 @@ body {
 }
 
 .pill {
-    font-size: 12px;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.6);
+    font-size: 11px;
+    font-family: system-ui, -apple-system, sans-serif;
+    border: 1px solid #cbd5e1;
+    border-bottom: 2px solid #94a3b8;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #334155;
     text-align: center;
     display: inline-block;
+    font-weight: 600;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+    letter-spacing: 0.5px;
 }
 
 /* 右侧内容主面板 */
@@ -156,7 +160,7 @@ body {
     height: 100%;
     overflow: hidden;
     position: relative;
-    background: rgba(15, 23, 42, 0.2);
+    background: #fdfaf2; /* 温暖干净的燕麦奶底色，拒绝脏灰色 */
 }
 
 .tab-pane {
@@ -179,7 +183,7 @@ body {
     align-items: center;
     padding: 16px 24px;
     border-bottom: 1px solid var(--border);
-    background: rgba(15, 23, 42, 0.4);
+    background: #f4edd8; /* 奶油暖黄操作条背景 */
     height: 70px;
 }
 
@@ -187,7 +191,7 @@ body {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: #f8fafc;
+    color: var(--text);
 }
 
 .btn {
@@ -215,15 +219,15 @@ body {
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border);
-    color: var(--text);
+    background: #fbf9f1;
+    border: 1px solid #d4a373;
+    color: #925325; /* 清晰高对比度暖字 */
     box-shadow: none;
 }
 
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background: #f4edd8;
+    color: #925325;
     box-shadow: none;
 }
 
@@ -238,7 +242,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
-    background: rgba(15, 23, 42, 0.1);
+    background: #faf5e6; /* 统一的暖黄对话聊天区域底色，与脏灰色说拜拜 */
 }
 
 .dayline {
@@ -289,6 +293,13 @@ body {
     border-color: rgba(129, 140, 248, 0.3);
 }
 
+.msg.user .avatar {
+    background: #2e6f40;             /* 用户“我”的头像 logo 改为深绿色 */
+    color: #ffffff;                  /* 保持白色文字高清晰度对比 */
+    border-color: #1b522b;
+    font-weight: 600;
+}
+
 .bubble {
     max-width: min(760px, 80%);
     display: inline-block;
@@ -298,16 +309,16 @@ body {
     background: var(--bubble-bot);
     line-height: 1.6;
     font-size: 14px;
-    white-space: pre-wrap;
+    white-space: normal; /* 启用Markdown后，修改为normal防段落双重换行 */
     overflow-wrap: break-word;
-    color: #f1f5f9;
+    color: var(--text);
 }
 
 .msg.user .bubble {
     background: var(--bubble-user);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
+    color: #000000;                  /* 用户消息框文字改为黑色 */
+    border-color: #d0d8b4;           /* 舒适的浅绿边框 */
+    box-shadow: 0 4px 12px rgba(78, 61, 48, 0.08); /* 改用与背景协调的柔和深色投影 */
 }
 
 .meta {
@@ -317,16 +328,16 @@ body {
 }
 
 .msg.user .meta {
-    color: rgba(255, 255, 255, .7);
+    color: var(--muted);             /* 用户时间标颜色改为高对比度焦糖灰 */
 }
 
 /* SSE 进度展示样式 */
 details.progress {
     margin-top: 12px;
-    border: 1px dashed rgba(56, 189, 248, 0.25);
+    border: 1px dashed var(--border);
     border-radius: 10px;
     padding: 10px 14px;
-    background: rgba(15, 23, 42, 0.5);
+    background: #faf7f0;
     font-size: 13px;
     transition: var(--transition);
 }
@@ -360,32 +371,37 @@ details.progress summary:hover {
     gap: 8px;
 }
 
-/* 图片答案渲染 */
+/* 图片答案渲染与尺寸智能限制（解决小图强行拉大问题） */
 .answer-images,
 .answer-img-wrap {
-    margin-top: 12px;
+    margin-top: 10px;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .answer-images img,
-.answer-img-wrap img {
-    display: block;
-    max-width: min(100%, 640px);
-    max-height: 500px;
-    width: auto;
-    height: auto;
-    border-radius: 12px;
+.answer-img-wrap img,
+.bubble img {
+    display: inline-block;
+    max-width: 100%;
+    max-height: 260px;               /* 适度的最大高度限制 */
+    width: auto !important;          /* 彻底杜绝小图片拉大变模糊的问题！ */
+    height: auto !important;
+    object-fit: contain;
+    border-radius: 8px;
     border: 1px solid var(--border);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    background: rgba(15, 23, 42, 0.5);
+    box-shadow: 0 4px 12px rgba(78, 61, 48, 0.06);
+    background: #ffffff;
     transition: transform 0.2s ease;
+    vertical-align: middle;
 }
 
 .answer-images img:hover,
-.answer-img-wrap img:hover {
-    transform: scale(1.01);
+.answer-img-wrap img:hover,
+.bubble img:hover {
+    transform: scale(1.02);
 }
 
 /* 等待打字效果 */
@@ -427,7 +443,7 @@ details.progress summary:hover {
 .composer-area {
     border-top: 1px solid var(--border);
     padding: 16px 24px;
-    background: rgba(15, 23, 42, 0.4);
+    background: #f4edd8;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -450,19 +466,19 @@ textarea {
     outline: none;
     font-size: 14px;
     line-height: 1.5;
-    background: rgba(15, 23, 42, 0.6);
-    color: #e2e8f0;
+    background: #ffffff;
+    color: var(--text);
     transition: var(--transition);
 }
 
 textarea:focus {
-    border-color: rgba(56, 189, 248, 0.5);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
-    background: rgba(15, 23, 42, 0.8);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.15);
+    background: #ffffff;
 }
 
 textarea::placeholder {
-    color: #475569;
+    color: #a89382;
 }
 
 .send {
@@ -496,13 +512,16 @@ textarea::placeholder {
 }
 
 .kbd {
-    font-family: monospace;
-    border: 1px solid var(--border);
+    font-family: system-ui, -apple-system, sans-serif;
+    border: 1px solid #cbd5e1;
+    border-bottom: 2px solid #94a3b8;
     padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(15, 23, 42, 0.6);
-    color: #64748b;
+    background: #ffffff;
+    color: #334155;
     margin: 0 2px;
+    font-weight: 500;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
 /* ---------------- 知识库管理视图 ---------------- */
@@ -521,8 +540,8 @@ textarea::placeholder {
 
 /* 上传拖拽区域 */
 .upload-area {
-    border: 2px dashed rgba(56, 189, 248, 0.3);
-    background: rgba(15, 23, 42, 0.3);
+    border: 2px dashed #e9dec4;
+    background: #fbf9f1;
     border-radius: 14px;
     padding: 50px 30px;
     text-align: center;
@@ -533,18 +552,18 @@ textarea::placeholder {
 
 .upload-area:hover {
     border-color: var(--brand);
-    background: rgba(56, 189, 248, 0.05);
-    box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.08);
+    background: #f4edd8;
+    box-shadow: inset 0 0 20px rgba(212, 163, 115, 0.05);
 }
 
 .upload-icon {
     font-size: 54px;
     margin-bottom: 16px;
-    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.3));
+    filter: drop-shadow(0 0 10px rgba(212, 163, 115, 0.2));
 }
 
 .upload-text {
-    color: #94a3b8;
+    color: var(--muted);
     font-size: 15px;
     font-weight: 500;
 }
@@ -561,20 +580,21 @@ textarea::placeholder {
 }
 
 .file-item {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: #ffffff;
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     transition: var(--transition);
+    box-shadow: var(--shadow);
 }
 
 .file-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    border-color: rgba(56, 189, 248, 0.2);
+    box-shadow: 0 10px 25px -5px rgba(78, 61, 48, 0.08);
+    border-color: var(--brand);
 }
 
 .file-info {
@@ -795,17 +815,198 @@ textarea::placeholder {
     50% { box-shadow: 0 0 12px rgba(59, 130, 246, 0.7); }
 }
 
-/* 滚动条美化 */
+/* 滚动条美化 - 温暖色调 */
 ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 ::-webkit-scrollbar-track {
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(212, 163, 115, 0.2);
     border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(212, 163, 115, 0.4);
 }
+
+/* ====================================================
+   Markdown 排版样式支持 - 专为机器人消息气泡设计
+   ==================================================== */
+.bubble p {
+    margin: 0 0 10px 0;
+}
+.bubble p:last-child {
+    margin-bottom: 0;
+}
+.bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
+    margin: 14px 0 8px 0;
+    color: var(--text);
+    font-weight: 700;
+}
+.bubble h1 { font-size: 1.4em; }
+.bubble h2 { font-size: 1.25em; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.bubble h3 { font-size: 1.1em; }
+
+.bubble ul, .bubble ol {
+    margin: 6px 0 10px 0;
+    padding-left: 20px;
+}
+.bubble li {
+    margin-bottom: 4px;
+}
+.bubble li::marker {
+    color: var(--brand); /* 列表项目符使用焦糖色 */
+}
+
+/* 行内代码样式 */
+.bubble :not(pre) > code {
+    background: #f4edd8;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace, Consolas, Courier;
+    font-size: 13px;
+    color: #a05d2c;
+    border: 1px solid rgba(212, 163, 115, 0.2);
+}
+
+/* 代码块样式 */
+.bubble pre {
+    background: #fdfbf7;
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 10px 0;
+    font-family: monospace, Consolas, Courier;
+}
+.bubble pre code {
+    background: transparent;
+    padding: 0;
+    color: var(--text);
+    border: none;
+    font-size: 13px;
+}
+
+/* 表格样式支持 */
+.bubble table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(78, 61, 48, 0.03);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.bubble th, .bubble td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+}
+.bubble th {
+    background-color: #f4edd8;
+    font-weight: 600;
+}
+.bubble tr:nth-child(even) {
+    background-color: #faf7f0;
+}
+
+/* 强调字样 */
+.bubble strong {
+    color: #925325; /* 加粗字样采用更深的焦糖红褐，更加醒目 */
+    font-weight: bold;
+}
+.bubble blockquote {
+    margin: 8px 0;
+    padding-left: 12px;
+    border-left: 4px solid var(--brand);
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* 中等置信度选择卡片样式 */
+.confirm-options-wrap {
+    background: #ffffff;
+    border: 1px solid #e7e5e4;
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 8px;
+    max-width: 480px;
+    box-shadow: 0 4px 20px -2px rgba(78, 61, 48, 0.06);
+}
+
+.confirm-prompt {
+    margin: 0 0 14px 0 !important;
+    font-weight: 600;
+    color: #3f3f46;
+    font-size: 14.5px;
+    letter-spacing: 0.2px;
+}
+
+.confirm-buttons-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-confirm-opt {
+    position: relative;
+    background: #fafaf9;
+    border: 1px solid #e7e5e4;
+    color: #4e3d30;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    width: 100%;
+    outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 22px; /* 给左侧金色条留出适度空间 */
+}
+
+/* 精致竖线条装饰指示器 */
+.btn-confirm-opt::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #cca772;
+    opacity: 0.6;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-confirm-opt:hover:not(:disabled) {
+    background: #f5efe6;
+    border-color: #d4a373;
+    color: #7c2d12;
+    transform: translateX(4px); /* 现代平滑横移效果 */
+}
+
+.btn-confirm-opt:hover:not(:disabled)::before {
+    width: 6px;
+    background: #d4a373;
+    opacity: 1;
+}
+
+.btn-confirm-opt:active:not(:disabled) {
+    background: #ebe4d8;
+    transform: translateX(1px);
+}
+
+.btn-confirm-opt:disabled {
+    background: #f4edd8 !important;
+    border-color: #e9dec4 !important;
+    color: #a89382 !important;
+    cursor: not-allowed;
+}
+
